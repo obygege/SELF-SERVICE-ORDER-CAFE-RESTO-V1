@@ -1,0 +1,21 @@
+type User @table {
+  displayName: String!
+  email: String
+  createdAt: Timestamp!
+}
+
+type DataSeries @table {
+  user: User!
+  name: String!
+  description: String
+  createdAt: Timestamp!
+}
+
+type DataPoint @table {
+  user: User!
+  dataSeries: DataSeries!
+  value: Float!
+  recordedAt: Timestamp!
+  notes: String
+  createdAt: Timestamp!
+}

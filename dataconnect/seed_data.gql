@@ -1,0 +1,50 @@
+mutation CreateSeedData @transaction @auth(level: PUBLIC, insecureReason: "This operation is used to seed the database with initial data and is safe to expose to the public.") {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-26T12:00:00Z",
+      displayName: "Demo User 1",
+      email: "demo1@example.com"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-26T13:00:00Z",
+      displayName: "Demo User 2",
+      email: "demo2@example.com"
+    }
+  ])
+  dataSeries_insertMany(data: [
+    {
+      id: "650e8400-e29b-41d4-a716-446655440002",
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-26T14:00:00Z",
+      name: "Heart Rate",
+      description: "Heart rate data"
+    },
+    {
+      id: "650e8400-e29b-41d4-a716-446655440003",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-26T15:00:00Z",
+      name: "Steps",
+      description: "Step count data"
+    }
+  ])
+  dataPoint_insertMany(data: [
+    {
+      id: "750e8400-e29b-41d4-a716-446655440004",
+      dataSeriesId: "650e8400-e29b-41d4-a716-446655440002",
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-26T16:00:00Z",
+      recordedAt: "2024-04-26T16:00:00Z",
+      value: 72.0
+    },
+    {
+      id: "750e8400-e29b-41d4-a716-446655440005",
+      dataSeriesId: "650e8400-e29b-41d4-a716-446655440003",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-26T17:00:00Z",
+      recordedAt: "2024-04-26T17:00:00Z",
+      value: 1500.0
+    }
+  ])
+}

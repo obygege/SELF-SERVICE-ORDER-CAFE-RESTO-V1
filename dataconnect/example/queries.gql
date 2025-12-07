@@ -1,0 +1,33 @@
+mutation CreateUser @auth(level: USER) {
+  user_insert(data: {
+    displayName: "New User",
+    email: "newuser@example.com",
+    createdAt_expr: "request.time"
+  })
+}
+
+query ListDataPoints @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  dataPoints {
+    id
+    value
+    recordedAt
+    notes
+  }
+}
+
+mutation UpdateDataSeriesDescription($id: UUID!, $description: String) @auth(level: USER) {
+  dataSeries_update(
+    id: $id,
+    data: {
+      description: $description
+    }
+  )
+}
+
+query GetDataSeriesByName($name: String!) @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  dataSeriess(where: {name: {eq: $name}}) {
+    id
+    name
+    description
+  }
+}
