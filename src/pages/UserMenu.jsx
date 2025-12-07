@@ -12,24 +12,21 @@ const UserMenu = () => {
     const [products, setProducts] = useState([]);
     const [categoryFilter, setCategoryFilter] = useState('Semua');
     const [loading, setLoading] = useState(true);
-    const [searchParams, setSearchParams] = useSearchParams(); // Pakai setSearchParams juga
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    // LOGIC PINTAR DETEKSI MEJA (Anti-Hilang)
     const urlTable = searchParams.get('table');
     const savedTable = localStorage.getItem('activeTable');
 
-    // Jika ada di URL, pakai itu. Jika tidak, ambil dari memori. Jika tidak ada juga, default 1.
-    const tableNumber = urlTable || savedTable || 1;
+    const rawTableNumber = urlTable || savedTable || "1";
 
-    // Efek: Pastikan LocalStorage dan URL selalu sinkron
+    // HELPER PEMBERSIH MEJA (Hapus kata "Meja" atau "No" biar bersih)
+    const displayTable = rawTableNumber.toString().replace(/Meja\s*/i, "").replace(/No\.?\s*/i, "").trim();
+
     useEffect(() => {
         if (urlTable) {
-            // Jika URL punya param, simpan ke memori sebagai update terbaru
             localStorage.setItem('activeTable', urlTable);
         } else if (savedTable) {
-            // Jika URL kosong TAPI memori ada (habis login), update URL tanpa refresh
-            // Ini biar kalau user refresh, datanya tetap aman di URL
             setSearchParams({ table: savedTable }, { replace: true });
         }
     }, [urlTable, savedTable, setSearchParams]);
@@ -52,8 +49,6 @@ const UserMenu = () => {
 
     const handleLogout = async () => {
         await logout();
-        // Jangan hapus activeTable agar meja tetap tersimpan untuk next login
-        // localStorage.removeItem('activeTable'); 
     };
 
     return (
@@ -67,7 +62,8 @@ const UserMenu = () => {
                     </div>
                     <div>
                         <h1 className="font-bold text-gray-800 leading-tight text-sm">Cafe Futura</h1>
-                        <p className="text-xs text-gray-500">Meja No. {tableNumber} • {currentUser?.displayName?.split(' ')[0] || 'Guest'}</p>
+                        {/* PERBAIKAN TAMPILAN DISINI */}
+                        <p className="text-xs text-gray-500">Meja {displayTable} • {currentUser?.displayName?.split(' ')[0] || 'Guest'}</p>
                     </div>
                 </div>
                 <div className="flex gap-2">

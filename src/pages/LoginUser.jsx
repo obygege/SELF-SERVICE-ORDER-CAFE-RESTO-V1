@@ -14,27 +14,39 @@ const LoginUser = () => {
     const [checkingLoc, setCheckingLoc] = useState(false);
     const [storeConfig, setStoreConfig] = useState(null);
 
-    const { loginEmail, registerEmail, loginGoogle } = useAuth();
+    const { currentUser, loginEmail, registerEmail, loginGoogle } = useAuth();
+
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const tableParam = searchParams.get('table');
 
     useEffect(() => {
-        if (tableParam) localStorage.setItem('activeTable', tableParam);
+        if (tableParam) {
+            localStorage.setItem('activeTable', tableParam);
+        }
 
-        // FETCH CONFIG LOKASI DARI DB
+        if (currentUser) {
+            const targetTable = tableParam || localStorage.getItem('activeTable');
+            if (targetTable) {
+                navigate(`/?table=${targetTable}`, { replace: true });
+            } else {
+                navigate('/', { replace: true });
+            }
+        }
+    }, [currentUser, tableParam, navigate]);
+
+    useEffect(() => {
         const fetchConfig = async () => {
             const docRef = doc(db, "config", "storeSettings");
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 setStoreConfig(docSnap.data());
             } else {
-                // Default jika belum disetting admin
                 setStoreConfig({ latitude: 0, longitude: 0, radius: 0 });
             }
         };
         fetchConfig();
-    }, [tableParam]);
+    }, []);
 
     const deg2rad = (deg) => deg * (Math.PI / 180);
 
@@ -50,8 +62,6 @@ const LoginUser = () => {
     const verifyLocation = () => {
         return new Promise((resolve, reject) => {
             if (!storeConfig || storeConfig.latitude === 0) {
-                // Jika admin belum set lokasi, loloskan saja (Mode Dev) atau Blokir
-                // Disini kita loloskan agar tidak error saat setup awal
                 return resolve(true);
             }
 
@@ -89,17 +99,13 @@ const LoginUser = () => {
         });
     };
 
-    const handleSuccessRedirect = () => {
-        const finalTable = tableParam || localStorage.getItem('activeTable');
-        if (finalTable) navigate(`/?table=${finalTable}`);
-        else navigate('/');
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (checkingLoc) return;
+
         try {
             await verifyLocation();
+
             if (isRegister) {
                 await registerEmail(email, password, name);
                 toast.success("Akun berhasil dibuat!");
@@ -107,17 +113,32 @@ const LoginUser = () => {
                 await loginEmail(email, password);
                 toast.success("Berhasil Masuk!");
             }
-            handleSuccessRedirect();
-        } catch (err) { if (err !== false) toast.error("Gagal Login"); }
+        } catch (err) {
+            if (err !== false) {
+                toast.error(isRegister ? "Gagal Daftar" : "Email/Password Salah");
+            }
+        }
     };
 
     const handleGoogle = async () => {
         if (checkingLoc) return;
+
         try {
             await verifyLocation();
             await loginGoogle();
-            handleSuccessRedirect();
-        } catch (err) { if (err !== false) toast.error("Gagal Login Google"); }
+        } catch (err) {
+            if (err !== false) {
+                if (err.code !== 'auth/popup-closed-by-user') {
+                    toast.error("Gagal Login Google");
+                }
+            }
+        }
+    };
+
+    // HELPER: Membersihkan nama meja (hapus kata "Meja" kalau ada, biar gak double)
+    const formatTableDisplay = (tableName) => {
+        if (!tableName) return "";
+        return tableName.toString().replace(/Meja\s*/i, "").trim();
     };
 
     return (
@@ -132,12 +153,24 @@ const LoginUser = () => {
                     <h2 className="text-2xl font-bold text-gray-800">
                         {isRegister ? 'Buat Akun Baru' : 'Selamat Datang'}
                     </h2>
-                    <p className="text-gray-500 text-sm mt-1">Sistem akan memverifikasi lokasi Anda.</p>
-                    {tableParam && <div className="mt-2 inline-block bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">Meja {tableParam}</div>}
+                    <p className="text-gray-500 text-sm mt-1">
+                        Sistem akan memverifikasi lokasi Anda.
+                    </p>
+
+                    {/* PERBAIKAN TAMPILAN MEJA DISINI */}
+                    {tableParam && (
+                        <div className="mt-2 inline-block bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">
+                            Meja {formatTableDisplay(tableParam)}
+                        </div>
+                    )}
                 </div>
 
                 <div className="px-8 pb-8">
-                    <button onClick={handleGoogle} disabled={checkingLoc} className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 ${checkingLoc ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
+                    <button
+                        onClick={handleGoogle}
+                        disabled={checkingLoc}
+                        className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 ${checkingLoc ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                    >
                         {checkingLoc ? <Loader2 className="animate-spin w-5 h-5" /> : <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />}
                         {checkingLoc ? 'Mengecek Lokasi...' : (isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google')}
                     </button>
@@ -149,21 +182,41 @@ const LoginUser = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isRegister && (
-                            <div className="relative"><User className="absolute left-3 top-3 text-gray-400" size={18} /><input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} /></div>
+                            <div className="relative">
+                                <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                                <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} />
+                            </div>
                         )}
-                        <div className="relative"><Mail className="absolute left-3 top-3 text-gray-400" size={18} /><input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                        <div className="relative"><Lock className="absolute left-3 top-3 text-gray-400" size={18} /><input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
 
-                        <button type="submit" disabled={checkingLoc} className={`w-full bg-orange-600 text-white py-3 rounded-lg font-bold transition flex justify-center items-center gap-2 ${checkingLoc ? 'opacity-70' : 'hover:bg-orange-700'}`}>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                        </div>
+
+                        <div className="relative">
+                            <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={checkingLoc}
+                            className={`w-full bg-orange-600 text-white py-3 rounded-lg font-bold transition flex justify-center items-center gap-2 ${checkingLoc ? 'opacity-70' : 'hover:bg-orange-700'}`}
+                        >
                             {checkingLoc ? <><Loader2 className="animate-spin w-5 h-5" /> Verifikasi...</> : (isRegister ? 'Daftar Sekarang' : 'Masuk Aplikasi')}
                         </button>
                     </form>
 
                     <div className="mt-6 text-center text-sm">
                         <span className="text-gray-500">{isRegister ? 'Sudah punya akun? ' : 'Belum punya akun? '}</span>
-                        <button onClick={() => setIsRegister(!isRegister)} className="text-orange-600 font-bold hover:underline">{isRegister ? 'Login disini' : 'Daftar disini'}</button>
+                        <button onClick={() => setIsRegister(!isRegister)} className="text-orange-600 font-bold hover:underline">
+                            {isRegister ? 'Login disini' : 'Daftar disini'}
+                        </button>
                     </div>
-                    <div className="mt-8 pt-4 border-t text-center"><Link to="/staff-login" className="text-xs text-gray-400 hover:text-gray-600 font-medium">Login Khusus Staff</Link></div>
+
+                    <div className="mt-8 pt-4 border-t text-center">
+                        <Link to="/staff-login" className="text-xs text-gray-400 hover:text-gray-600 font-medium">Login Khusus Staff</Link>
+                    </div>
                 </div>
             </div>
         </div>
