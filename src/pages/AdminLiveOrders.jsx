@@ -1,127 +1,90 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { useReactToPrint } from 'react-to-print';
 import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// KOMPONEN STRUK
+const Receipt = React.forwardRef(({ order }, ref) => {
+    if (!order) return <div ref={ref}></div>;
+
+    return (
+        <div ref={ref} className="bg-white text-black font-mono p-4" style={{ width: '80mm', margin: '0' }}>
+            <style>{`@media print { @page { size: 80mm auto; margin: 0; } body { margin: 0; padding: 0; } }`}</style>
+            <div className="text-center mb-4">
+                <h2 className="font-extrabold text-xl uppercase">CAFE FUTURA</h2>
+                <p className="text-xs">Jl. Teknologi No. 88</p>
+            </div>
+            <div className="border-b-2 border-dashed border-black my-2"></div>
+            <div className="text-xs space-y-1">
+                <div className="flex justify-between"><span>ID:</span><span>{order.orderId}</span></div>
+                <div className="flex justify-between"><span>Tgl:</span><span>{order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('id-ID') : '-'}</span></div>
+                <div className="flex justify-between"><span>Meja:</span><span>{order.tableNumber}</span></div>
+            </div>
+            <div className="border-b-2 border-dashed border-black my-2"></div>
+            <div className="flex flex-col gap-2 text-xs">
+                {order.items?.map((item, i) => (
+                    <div key={i} className="flex justify-between items-start">
+                        <div className="flex gap-1"><span className="font-bold">{item.qty}x</span><span>{item.name}</span></div>
+                        <span>{(item.price * item.qty).toLocaleString('id-ID')}</span>
+                    </div>
+                ))}
+            </div>
+            <div className="border-b-2 border-dashed border-black my-2"></div>
+            <div className="text-xs space-y-1 font-bold">
+                <div className="flex justify-between"><span>Total</span><span>Rp {order.total?.toLocaleString('id-ID')}</span></div>
+            </div>
+            <div className="text-center mt-4 text-xs font-bold">*** LUNAS ***</div>
+        </div>
+    );
+});
 
 const AdminLiveOrders = () => {
     const [orders, setOrders] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [printOrder, setPrintOrder] = useState(null);
     const [editingOrder, setEditingOrder] = useState(null);
+    const componentRef = useRef();
 
-    // --- FUNGSI PRINT SAT-SET (HTML INJECTION) ---
-    const printReceiptSatSet = (order) => {
-        // 1. Buat Iframe tersembunyi
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
+    const handlePrint = useReactToPrint({
+        content: () => componentRef.current,
+        onAfterPrint: () => setPrintOrder(null)
+    });
 
-        // 2. Siapkan Konten HTML (Mirip kodingan web biasa)
-        const itemsHtml = order.items.map(item => `
-      <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-        <div style="display: flex; gap: 5px;">
-          <span style="font-weight: bold;">${item.qty || item.quantity}x</span>
-          <span>${item.name}</span>
-        </div>
-        <span>${(item.price * (item.qty || item.quantity)).toLocaleString('id-ID')}</span>
-      </div>
-    `).join('');
-
-        const receiptHtml = `
-      <html>
-        <head>
-          <title>Print Struk</title>
-          <style>
-            @page { size: 80mm auto; margin: 0; }
-            body { font-family: 'Courier New', monospace; margin: 0; padding: 10px; width: 80mm; font-size: 12px; }
-            .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .line { border-bottom: 1px dashed black; margin: 10px 0; }
-            .flex { display: flex; justify-content: space-between; }
-            .uppercase { text-transform: uppercase; }
-          </style>
-        </head>
-        <body>
-          <div class="center bold" style="font-size: 16px;">CAFE FUTURA</div>
-          <div class="center" style="font-size: 10px;">Jl. Teknologi No. 88</div>
-          <div class="line"></div>
-          
-          <div class="flex"><span>ID:</span><span>${order.orderId}</span></div>
-          <div class="flex"><span>Tgl:</span><span>${new Date().toLocaleDateString('id-ID')}</span></div>
-          <div class="flex bold"><span>Tipe:</span><span class="uppercase">${order.diningOption === 'takeaway' ? 'AMBIL' : 'DINE-IN'}</span></div>
-          <div class="flex"><span>Meja:</span><span>${order.tableNumber}</span></div>
-          <div class="flex"><span>Cust:</span><span>${order.customerName.split(' ')[0]}</span></div>
-          
-          <div class="line"></div>
-          ${itemsHtml}
-          <div class="line"></div>
-          
-          <div class="flex"><span>Subtotal</span><span>${order.subTotal?.toLocaleString('id-ID')}</span></div>
-          ${order.adminFee > 0 ? `<div class="flex"><span>Layanan</span><span>${order.adminFee.toLocaleString('id-ID')}</span></div>` : ''}
-          
-          <div class="flex bold" style="font-size: 14px; margin-top: 5px;">
-            <span>TOTAL</span><span>Rp ${order.total?.toLocaleString('id-ID')}</span>
-          </div>
-          <div class="flex" style="font-size: 10px; margin-top: 5px;">
-             <span>Bayar:</span><span class="uppercase">${order.paymentMethod}</span>
-          </div>
-
-          <div class="line"></div>
-          
-          ${order.note ? `<div style="border:1px solid #000; padding:5px; margin-bottom:10px; font-weight:bold;">Note: ${order.note}</div>` : ''}
-          
-          <div class="center bold">*** LUNAS ***</div>
-          <div class="center" style="font-size: 10px; margin-top: 5px;">Powered By Futura Link</div>
-        </body>
-      </html>
-    `;
-
-        // 3. Tulis ke Iframe dan Print
-        const doc = iframe.contentWindow.document;
-        doc.open();
-        doc.write(receiptHtml);
-        doc.close();
-
-        // Tunggu gambar/font load sebentar (100ms cukup), lalu print
-        setTimeout(() => {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-            // Hapus iframe setelah selesai (biar gak menuhin memori)
-            setTimeout(() => document.body.removeChild(iframe), 1000);
-        }, 100);
-    };
-    // --- END FUNGSI PRINT ---
+    useEffect(() => {
+        if (printOrder) handlePrint();
+    }, [printOrder, handlePrint]);
 
     useEffect(() => {
         const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
         const unsub = onSnapshot(q, (snapshot) => {
-            const list = snapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(o => o.status !== 'completed');
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(o => o.status !== 'completed');
             setOrders(list);
         });
         return () => unsub();
     }, []);
 
+    // --- PERBAIKAN LOGIKA STATUS DISINI ---
     const changeStatus = async (id, currentStatus) => {
         let nextStatus = '';
+        let extraUpdates = {};
+
         if (currentStatus === 'pending') nextStatus = 'cooking';
         else if (currentStatus === 'cooking') nextStatus = 'ready';
-        else if (currentStatus === 'ready') nextStatus = 'completed';
+        else if (currentStatus === 'ready') {
+            nextStatus = 'completed';
+            // WAJIB: Jika selesai, tandai LUNAS (paid) agar masuk laporan
+            extraUpdates = { paymentStatus: 'paid' };
+        }
+
         if (nextStatus) {
-            await updateDoc(doc(db, "orders", id), { status: nextStatus });
+            await updateDoc(doc(db, "orders", id), {
+                status: nextStatus,
+                ...extraUpdates
+            });
             toast.success(`Status: ${nextStatus.toUpperCase()}`);
         }
-    };
-
-    const handleEditItemQty = (index, delta) => {
-        if (!editingOrder) return;
-        const newItems = [...editingOrder.items];
-        newItems[index].qty += delta;
-        if (newItems[index].qty < 1) newItems[index].qty = 1;
-        const newSubTotal = newItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const newTotal = newSubTotal + (editingOrder.adminFee || 0);
-        setEditingOrder({ ...editingOrder, items: newItems, subTotal: newSubTotal, total: newTotal });
     };
 
     const saveEditedOrder = async () => {
@@ -136,6 +99,16 @@ const AdminLiveOrders = () => {
         } catch (error) { toast.error("Gagal Edit"); }
     };
 
+    const handleEditItemQty = (index, delta) => {
+        if (!editingOrder) return;
+        const newItems = [...editingOrder.items];
+        newItems[index].qty += delta;
+        if (newItems[index].qty < 1) newItems[index].qty = 1;
+        const newSubTotal = newItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
+        const newTotal = newSubTotal + (editingOrder.adminFee || 0);
+        setEditingOrder({ ...editingOrder, items: newItems, subTotal: newSubTotal, total: newTotal });
+    };
+
     const filteredOrders = orders.filter(o =>
         (o.orderId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (o.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -144,12 +117,10 @@ const AdminLiveOrders = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <BellRing className="text-orange-600" /> Pesanan Masuk
-                </h1>
+                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BellRing className="text-orange-600" /> Pesanan Masuk</h1>
                 <div className="relative">
                     <Search className="absolute left-3 top-3 text-gray-400" size={18} />
-                    <input type="text" placeholder="Cari Order..." className="pl-10 pr-4 py-2 border rounded-xl outline-none w-64" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    <input type="text" placeholder="Cari..." className="pl-10 pr-4 py-2 border rounded-xl outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                 </div>
             </div>
 
@@ -166,45 +137,28 @@ const AdminLiveOrders = () => {
                                 <p className="text-[10px] text-gray-500 font-bold bg-yellow-100 px-1 rounded">{order.orderId}</p>
                             </div>
                         </div>
-
                         <div className={`text-xs font-bold py-1 px-2 rounded mb-3 inline-block ${order.diningOption === 'takeaway' ? 'bg-purple-100 text-purple-700' : 'bg-orange-50 text-orange-700'}`}>
                             {order.diningOption === 'takeaway' ? '🛍️ AMBIL SENDIRI' : '🍽️ DINE IN'}
                         </div>
-
                         {order.note && <div className="bg-yellow-50 p-2 rounded border border-yellow-200 text-xs italic mb-2 text-gray-600">"{order.note}"</div>}
-
                         <div className="space-y-1 mb-4 text-sm border-t border-b py-2 border-dashed">
                             {order.items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between">
-                                    <span><b>{item.qty}x</b> {item.name}</span>
-                                </div>
+                                <div key={idx} className="flex justify-between"><span><b>{item.qty}x</b> {item.name}</span></div>
                             ))}
                         </div>
-
                         <div className="flex gap-2">
                             <button onClick={() => changeStatus(order.id, order.status)} className="flex-1 bg-slate-800 text-white py-2 rounded text-sm font-bold hover:bg-slate-700 flex justify-center items-center gap-2">
                                 {order.status === 'pending' && <><ChefHat size={16} /> Masak</>}
                                 {order.status === 'cooking' && <><BellRing size={16} /> Siap</>}
                                 {order.status === 'ready' && <><CheckCircle size={16} /> Selesai</>}
                             </button>
-                            <button onClick={() => setEditingOrder(order)} className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 border border-blue-200">
-                                <Edit2 size={18} />
-                            </button>
-
-                            {/* TOMBOL PRINT SUPER CEPAT */}
-                            <button
-                                onClick={() => printReceiptSatSet(order)}
-                                className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300 shadow-sm"
-                                title="Print Struk Instan"
-                            >
-                                <Printer size={18} />
-                            </button>
+                            <button onClick={() => setEditingOrder(order)} className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 border border-blue-200"><Edit2 size={18} /></button>
+                            <button onClick={() => setPrintOrder(order)} className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300"><Printer size={18} /></button>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* EDIT MODAL */}
             {editingOrder && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
@@ -225,6 +179,10 @@ const AdminLiveOrders = () => {
                     </div>
                 </div>
             )}
+
+            <div style={{ position: "fixed", top: 0, left: 0, opacity: 0, pointerEvents: "none", zIndex: -50 }}>
+                <Receipt ref={componentRef} order={printOrder} />
+            </div>
         </div>
     );
 };
