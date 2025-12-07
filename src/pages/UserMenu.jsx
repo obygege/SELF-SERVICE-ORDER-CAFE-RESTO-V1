@@ -12,10 +12,27 @@ const UserMenu = () => {
     const [products, setProducts] = useState([]);
     const [categoryFilter, setCategoryFilter] = useState('Semua');
     const [loading, setLoading] = useState(true);
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams(); // Pakai setSearchParams juga
     const navigate = useNavigate();
 
-    const tableNumber = searchParams.get('table') || 1;
+    // LOGIC PINTAR DETEKSI MEJA (Anti-Hilang)
+    const urlTable = searchParams.get('table');
+    const savedTable = localStorage.getItem('activeTable');
+
+    // Jika ada di URL, pakai itu. Jika tidak, ambil dari memori. Jika tidak ada juga, default 1.
+    const tableNumber = urlTable || savedTable || 1;
+
+    // Efek: Pastikan LocalStorage dan URL selalu sinkron
+    useEffect(() => {
+        if (urlTable) {
+            // Jika URL punya param, simpan ke memori sebagai update terbaru
+            localStorage.setItem('activeTable', urlTable);
+        } else if (savedTable) {
+            // Jika URL kosong TAPI memori ada (habis login), update URL tanpa refresh
+            // Ini biar kalau user refresh, datanya tetap aman di URL
+            setSearchParams({ table: savedTable }, { replace: true });
+        }
+    }, [urlTable, savedTable, setSearchParams]);
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -33,6 +50,12 @@ const UserMenu = () => {
 
     const categories = ['Semua', 'Makanan', 'Minuman', 'Dimsum'];
 
+    const handleLogout = async () => {
+        await logout();
+        // Jangan hapus activeTable agar meja tetap tersimpan untuk next login
+        // localStorage.removeItem('activeTable'); 
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 font-sans flex flex-col relative">
 
@@ -44,14 +67,14 @@ const UserMenu = () => {
                     </div>
                     <div>
                         <h1 className="font-bold text-gray-800 leading-tight text-sm">Cafe Futura</h1>
-                        <p className="text-xs text-gray-500">Meja No. {tableNumber}</p>
+                        <p className="text-xs text-gray-500">Meja No. {tableNumber} • {currentUser?.displayName?.split(' ')[0] || 'Guest'}</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={() => navigate('/history')} className="bg-gray-50 p-2 rounded-full text-gray-600 hover:bg-orange-100 hover:text-orange-600 transition border border-gray-100">
                         <History size={20} />
                     </button>
-                    <button onClick={logout} className="bg-gray-50 p-2 rounded-full text-red-400 hover:bg-red-50 hover:text-red-600 transition border border-gray-100">
+                    <button onClick={handleLogout} className="bg-gray-50 p-2 rounded-full text-red-400 hover:bg-red-50 hover:text-red-600 transition border border-gray-100">
                         <LogOut size={20} />
                     </button>
                 </div>
@@ -115,14 +138,13 @@ const UserMenu = () => {
                     ))}
             </div>
 
-            {/* FOOTER FIXED Z-INDEX RENDAH (Di Belakang Cart) */}
+            {/* FOOTER */}
             <footer className="fixed bottom-0 left-0 right-0 py-4 bg-gray-100 text-center z-0">
                 <p className="text-[10px] text-gray-400 font-medium">Created By <span className="text-orange-600 font-bold">Futura Link</span></p>
-                {/* Spacer untuk Cart */}
                 <div className="h-16"></div>
             </footer>
 
-            {/* FLOATING CART (Z-INDEX TINGGI) */}
+            {/* FLOATING CART */}
             {getCartCount() > 0 && (
                 <div className="fixed bottom-0 left-0 right-0 p-4 z-30 bg-gradient-to-t from-white via-white to-transparent">
                     <button onClick={() => navigate('/cart')} className="w-full bg-slate-900 text-white rounded-2xl shadow-2xl p-4 flex justify-between items-center hover:bg-slate-800 transition transform active:scale-95">

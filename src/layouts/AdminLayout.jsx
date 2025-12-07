@@ -13,7 +13,12 @@ const AdminLayout = () => {
         navigate('/staff-login');
     };
 
-    const isActive = (path) => location.pathname === path ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800 hover:text-white';
+    const isActive = (path) => {
+        // Logic agar warna aktif tetap menyala meskipun ada sub-path
+        if (path === '/head' && location.pathname === '/head') return 'bg-orange-600 text-white shadow-lg';
+        if (path !== '/head' && location.pathname.startsWith(path)) return 'bg-orange-600 text-white shadow-lg';
+        return 'text-slate-300 hover:bg-slate-800 hover:text-white';
+    };
 
     return (
         <div className="flex h-screen bg-gray-100 font-sans">
@@ -23,36 +28,51 @@ const AdminLayout = () => {
                         <ShieldCheck size={24} className="text-white" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight">POS ADMIN</h1>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{userRole} ACCESS</p>
+                        <h1 className="text-xl font-bold tracking-tight">POS SYSTEM</h1>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{userRole === 'head' ? 'KEPALA TOKO' : 'ADMINISTRATOR'}</p>
                     </div>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2 mt-4 overflow-y-auto">
-                    <Link to="/admin" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin')}`}>
-                        <LayoutDashboard size={20} /> Dashboard
-                    </Link>
 
-                    <Link to="/admin/live-orders" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/live-orders')}`}>
-                        <ClipboardList size={20} /> Pesanan Masuk
-                    </Link>
+                    {/* --- MENU KHUSUS ADMIN --- */}
+                    {userRole === 'admin' && (
+                        <>
+                            <Link to="/admin" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin')}`}>
+                                <LayoutDashboard size={20} /> Dashboard
+                            </Link>
 
-                    <Link to="/admin/history" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/history')}`}>
-                        <History size={20} /> Riwayat Transaksi
-                    </Link>
+                            <Link to="/admin/live-orders" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/live-orders')}`}>
+                                <ClipboardList size={20} /> Pesanan Masuk
+                            </Link>
 
-                    {/* MENU BARU */}
-                    <Link to="/admin/tables" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/tables')}`}>
-                        <QrCode size={20} /> Manajemen Meja
-                    </Link>
+                            <Link to="/admin/history" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/history')}`}>
+                                <History size={20} /> Riwayat Transaksi
+                            </Link>
 
-                    <Link to="/admin/products" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/products')}`}>
-                        <Coffee size={20} /> Produk & Menu
-                    </Link>
+                            <Link to="/admin/tables" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/tables')}`}>
+                                <QrCode size={20} /> Manajemen Meja
+                            </Link>
 
-                    <Link to="/admin/reports" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/reports')}`}>
-                        <FileBarChart size={20} /> Laporan Keuangan
-                    </Link>
+                            <Link to="/admin/products" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/products')}`}>
+                                <Coffee size={20} /> Produk & Menu
+                            </Link>
+
+                            <Link to="/admin/reports" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/reports')}`}>
+                                <FileBarChart size={20} /> Laporan Keuangan
+                            </Link>
+                        </>
+                    )}
+
+                    {/* --- MENU KHUSUS KEPALA TOKO --- */}
+                    {userRole === 'head' && (
+                        <>
+                            <div className="px-4 py-2 text-xs uppercase text-slate-500 font-bold tracking-wider">Laporan</div>
+                            <Link to="/head" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/head')}`}>
+                                <FileBarChart size={20} /> Laporan Keuangan
+                            </Link>
+                        </>
+                    )}
 
                     <div className="pt-4 mt-4 border-t border-slate-800">
                         <Link to="/profile" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/profile')}`}>
@@ -70,10 +90,12 @@ const AdminLayout = () => {
 
             <main className="flex-1 overflow-y-auto bg-gray-50 relative">
                 <header className="bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b px-8 py-4 flex justify-between items-center">
-                    <h2 className="font-bold text-gray-800 text-lg">Panel Kontrol {userRole === 'admin' ? 'Administrator' : 'Kepala Toko'}</h2>
+                    <h2 className="font-bold text-gray-800 text-lg">
+                        {userRole === 'admin' ? 'Control Panel' : 'Laporan Toko'}
+                    </h2>
                     <div className="flex items-center gap-3">
                         <div className="text-right hidden md:block">
-                            <p className="text-sm font-bold text-gray-700">Staff Active</p>
+                            <p className="text-sm font-bold text-gray-700">Login Sebagai</p>
                             <p className="text-xs text-gray-500 capitalize">{userRole}</p>
                         </div>
                         <div className="h-10 w-10 bg-gradient-to-tr from-orange-500 to-red-500 rounded-full flex items-center justify-center text-white font-bold shadow-md">
@@ -89,4 +111,4 @@ const AdminLayout = () => {
     );
 };
 
-export default AdminLayout; 
+export default AdminLayout;
