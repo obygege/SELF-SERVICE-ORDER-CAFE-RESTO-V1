@@ -17,7 +17,7 @@ import AdminTables from './pages/AdminTables';
 import AdminReports from './pages/AdminReports';
 import UserProfile from './pages/UserProfile';
 import SetupPage from './pages/SetupPage';
-
+import AdminSettings from './pages/AdminSettings';
 import AdminLayout from './layouts/AdminLayout';
 
 const PrivateRoute = ({ children, allowedRoles }) => {
@@ -70,6 +70,10 @@ function App() {
             </Route>
 
             <Route path="*" element={<Navigate to="/login" />} />
+            <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminLayout /></PrivateRoute>}>
+              {/* ... Route lain ... */}
+              <Route path="settings" element={<AdminSettings />} /> {/* Route Baru */}
+            </Route>
           </Routes>
         </Router>
       </CartProvider>

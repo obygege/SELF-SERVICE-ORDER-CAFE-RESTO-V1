@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, User, UtensilsCrossed } from 'lucide-react';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { Lock, Mail, User, UtensilsCrossed, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const LoginUser = () => {
@@ -9,34 +11,95 @@ const LoginUser = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
+    const [checkingLoc, setCheckingLoc] = useState(false);
+    const [storeConfig, setStoreConfig] = useState(null);
 
     const { loginEmail, registerEmail, loginGoogle } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-
-    // Ambil nomor meja dari URL jika ada
     const tableParam = searchParams.get('table');
 
-    // Efek: Jika ada nomor meja di URL login, simpan ke memori browser agar aman
     useEffect(() => {
-        if (tableParam) {
-            localStorage.setItem('activeTable', tableParam);
-        }
+        if (tableParam) localStorage.setItem('activeTable', tableParam);
+
+        // FETCH CONFIG LOKASI DARI DB
+        const fetchConfig = async () => {
+            const docRef = doc(db, "config", "storeSettings");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setStoreConfig(docSnap.data());
+            } else {
+                // Default jika belum disetting admin
+                setStoreConfig({ latitude: 0, longitude: 0, radius: 0 });
+            }
+        };
+        fetchConfig();
     }, [tableParam]);
 
+    const deg2rad = (deg) => deg * (Math.PI / 180);
+
+    const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+        const R = 6371;
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    const verifyLocation = () => {
+        return new Promise((resolve, reject) => {
+            if (!storeConfig || storeConfig.latitude === 0) {
+                // Jika admin belum set lokasi, loloskan saja (Mode Dev) atau Blokir
+                // Disini kita loloskan agar tidak error saat setup awal
+                return resolve(true);
+            }
+
+            if (!navigator.geolocation) {
+                toast.error("Browser tidak mendukung GPS.");
+                reject(false);
+                return;
+            }
+
+            setCheckingLoc(true);
+            toast("Memeriksa lokasi...", { icon: '📍' });
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const distance = getDistanceFromLatLonInKm(userLat, userLng, storeConfig.latitude, storeConfig.longitude);
+
+                    setCheckingLoc(false);
+
+                    if (distance <= storeConfig.radius) {
+                        resolve(true);
+                    } else {
+                        toast.error(`Akses Ditolak! Anda berjarak ${distance.toFixed(2)} km dari lokasi.`);
+                        reject(false);
+                    }
+                },
+                (error) => {
+                    setCheckingLoc(false);
+                    toast.error("Wajib izinkan akses Lokasi!");
+                    reject(false);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+    };
+
     const handleSuccessRedirect = () => {
-        // Cek URL dulu, kalau gak ada cek LocalStorage
         const finalTable = tableParam || localStorage.getItem('activeTable');
-        if (finalTable) {
-            navigate(`/?table=${finalTable}`);
-        } else {
-            navigate('/');
-        }
+        if (finalTable) navigate(`/?table=${finalTable}`);
+        else navigate('/');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (checkingLoc) return;
         try {
+            await verifyLocation();
             if (isRegister) {
                 await registerEmail(email, password, name);
                 toast.success("Akun berhasil dibuat!");
@@ -45,19 +108,16 @@ const LoginUser = () => {
                 toast.success("Berhasil Masuk!");
             }
             handleSuccessRedirect();
-        } catch (err) {
-            console.error(err);
-            toast.error(isRegister ? "Gagal Daftar" : "Email/Password Salah");
-        }
+        } catch (err) { if (err !== false) toast.error("Gagal Login"); }
     };
 
     const handleGoogle = async () => {
+        if (checkingLoc) return;
         try {
+            await verifyLocation();
             await loginGoogle();
             handleSuccessRedirect();
-        } catch (err) {
-            toast.error("Gagal Login Google");
-        }
+        } catch (err) { if (err !== false) toast.error("Gagal Login Google"); }
     };
 
     return (
@@ -72,23 +132,14 @@ const LoginUser = () => {
                     <h2 className="text-2xl font-bold text-gray-800">
                         {isRegister ? 'Buat Akun Baru' : 'Selamat Datang'}
                     </h2>
-                    <p className="text-gray-500 text-sm mt-1">
-                        {isRegister ? 'Isi data diri untuk memesan makanan' : 'Silakan masuk untuk mulai memesan'}
-                    </p>
-                    {tableParam && (
-                        <div className="mt-2 inline-block bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">
-                            Terdeteksi: Meja {tableParam}
-                        </div>
-                    )}
+                    <p className="text-gray-500 text-sm mt-1">Sistem akan memverifikasi lokasi Anda.</p>
+                    {tableParam && <div className="mt-2 inline-block bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">Meja {tableParam}</div>}
                 </div>
 
                 <div className="px-8 pb-8">
-                    <button
-                        onClick={handleGoogle}
-                        className="w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50 transition mb-6 font-medium text-gray-700"
-                    >
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
-                        {isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google'}
+                    <button onClick={handleGoogle} disabled={checkingLoc} className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 ${checkingLoc ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
+                        {checkingLoc ? <Loader2 className="animate-spin w-5 h-5" /> : <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />}
+                        {checkingLoc ? 'Mengecek Lokasi...' : (isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google')}
                     </button>
 
                     <div className="relative mb-6">
@@ -98,37 +149,21 @@ const LoginUser = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isRegister && (
-                            <div className="relative">
-                                <User className="absolute left-3 top-3 text-gray-400" size={18} />
-                                <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} />
-                            </div>
+                            <div className="relative"><User className="absolute left-3 top-3 text-gray-400" size={18} /><input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} /></div>
                         )}
+                        <div className="relative"><Mail className="absolute left-3 top-3 text-gray-400" size={18} /><input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                        <div className="relative"><Lock className="absolute left-3 top-3 text-gray-400" size={18} /><input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
 
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                        </div>
-
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-                        </div>
-
-                        <button type="submit" className="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700 transition shadow-lg shadow-orange-200">
-                            {isRegister ? 'Daftar Sekarang' : 'Masuk Aplikasi'}
+                        <button type="submit" disabled={checkingLoc} className={`w-full bg-orange-600 text-white py-3 rounded-lg font-bold transition flex justify-center items-center gap-2 ${checkingLoc ? 'opacity-70' : 'hover:bg-orange-700'}`}>
+                            {checkingLoc ? <><Loader2 className="animate-spin w-5 h-5" /> Verifikasi...</> : (isRegister ? 'Daftar Sekarang' : 'Masuk Aplikasi')}
                         </button>
                     </form>
 
                     <div className="mt-6 text-center text-sm">
                         <span className="text-gray-500">{isRegister ? 'Sudah punya akun? ' : 'Belum punya akun? '}</span>
-                        <button onClick={() => setIsRegister(!isRegister)} className="text-orange-600 font-bold hover:underline">
-                            {isRegister ? 'Login disini' : 'Daftar disini'}
-                        </button>
+                        <button onClick={() => setIsRegister(!isRegister)} className="text-orange-600 font-bold hover:underline">{isRegister ? 'Login disini' : 'Daftar disini'}</button>
                     </div>
-
-                    <div className="mt-8 pt-4 border-t text-center">
-                        <Link to="/staff-login" className="text-xs text-gray-400 hover:text-gray-600 font-medium">Login Khusus Staff</Link>
-                    </div>
+                    <div className="mt-8 pt-4 border-t text-center"><Link to="/staff-login" className="text-xs text-gray-400 hover:text-gray-600 font-medium">Login Khusus Staff</Link></div>
                 </div>
             </div>
         </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ShieldCheck, ClipboardList, History, QrCode } from 'lucide-react';
+import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ShieldCheck, ClipboardList, History, QrCode, Settings } from 'lucide-react';
 
 const AdminLayout = () => {
     const { userRole, logout } = useAuth();
@@ -14,7 +14,6 @@ const AdminLayout = () => {
     };
 
     const isActive = (path) => {
-        // Logic agar warna aktif tetap menyala meskipun ada sub-path
         if (path === '/head' && location.pathname === '/head') return 'bg-orange-600 text-white shadow-lg';
         if (path !== '/head' && location.pathname.startsWith(path)) return 'bg-orange-600 text-white shadow-lg';
         return 'text-slate-300 hover:bg-slate-800 hover:text-white';
@@ -35,36 +34,32 @@ const AdminLayout = () => {
 
                 <nav className="flex-1 p-4 space-y-2 mt-4 overflow-y-auto">
 
-                    {/* --- MENU KHUSUS ADMIN --- */}
                     {userRole === 'admin' && (
                         <>
                             <Link to="/admin" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin')}`}>
                                 <LayoutDashboard size={20} /> Dashboard
                             </Link>
-
                             <Link to="/admin/live-orders" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/live-orders')}`}>
                                 <ClipboardList size={20} /> Pesanan Masuk
                             </Link>
-
                             <Link to="/admin/history" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/history')}`}>
                                 <History size={20} /> Riwayat Transaksi
                             </Link>
-
                             <Link to="/admin/tables" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/tables')}`}>
                                 <QrCode size={20} /> Manajemen Meja
                             </Link>
-
                             <Link to="/admin/products" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/products')}`}>
                                 <Coffee size={20} /> Produk & Menu
                             </Link>
-
                             <Link to="/admin/reports" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/reports')}`}>
                                 <FileBarChart size={20} /> Laporan Keuangan
+                            </Link>
+                            <Link to="/admin/settings" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/settings')}`}>
+                                <Settings size={20} /> Pengaturan Toko
                             </Link>
                         </>
                     )}
 
-                    {/* --- MENU KHUSUS KEPALA TOKO --- */}
                     {userRole === 'head' && (
                         <>
                             <div className="px-4 py-2 text-xs uppercase text-slate-500 font-bold tracking-wider">Laporan</div>
