@@ -92,7 +92,7 @@ const AdminTables = () => {
           <div style="border:2px dashed #000; padding:10px; text-align:center; page-break-inside: avoid;">
               <div style="font-weight:bold; font-size:12px; font-family:sans-serif; margin-bottom:5px;">SCAN UTK PESAN</div>
               <img src="${t.qrDataUrl}" style="width:100px; height:100px;" />
-              <div style="font-weight:900; font-size:24px; font-family:sans-serif; text-transform:uppercase; margin-top:5px;">MEJA ${t.tableNumber}</div>
+              <div style="font-weight:900; font-size:24px; font-family:sans-serif; text-transform:uppercase; margin-top:5px;"> ${t.tableNumber}</div>
           </div>
       `).join('');
 
