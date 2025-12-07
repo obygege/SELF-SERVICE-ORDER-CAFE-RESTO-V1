@@ -3,11 +3,11 @@ import { auth, googleProvider } from '../firebase';
 import {
     signInWithPopup,
     signInWithEmailAndPassword,
-    createUserWithEmailAndPassword, // <--- Tambah ini
+    createUserWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
     updatePassword,
-    updateProfile // <--- Tambah ini untuk simpan nama user
+    updateProfile
 } from 'firebase/auth';
 
 const AuthContext = createContext();
@@ -19,30 +19,37 @@ export const AuthProvider = ({ children }) => {
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Login Google
     const loginGoogle = () => signInWithPopup(auth, googleProvider);
 
-    // Login Email Biasa
     const loginEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
 
-    // Daftar Email Baru (Fitur Baru)
     const registerEmail = async (email, password, name) => {
         const res = await createUserWithEmailAndPassword(auth, email, password);
-        // Update nama user agar tidak null
         await updateProfile(res.user, { displayName: name });
         return res;
     }
 
-    const logout = () => signOut(auth);
+    const logout = () => {
+        setUserRole(null); // Reset role saat logout
+        return signOut(auth);
+    };
+
     const changePassword = (newPassword) => updatePassword(currentUser, newPassword);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
-                let role = 'user';
-                if (user.email === 'admin@cafe.com') role = 'admin';
-                if (user.email === 'head@cafe.com') role = 'head';
+                const email = user.email.toLowerCase(); // Paksa huruf kecil biar aman
+                let role = 'user'; // Default role
 
+                // LOGIKA PENENTUAN ROLE
+                if (email === 'admin@cafe.com') {
+                    role = 'admin';
+                } else if (email === 'head@cafe.com') {
+                    role = 'head';
+                }
+
+                console.log(`Login sebagai: ${email} | Role: ${role}`); // Cek di Console
                 setUserRole(role);
                 setCurrentUser(user);
             } else {
@@ -57,9 +64,10 @@ export const AuthProvider = ({ children }) => {
     const value = {
         currentUser,
         userRole,
+        loading, // Export loading status
         loginGoogle,
         loginEmail,
-        registerEmail, // Export fungsi baru
+        registerEmail,
         logout,
         changePassword
     };

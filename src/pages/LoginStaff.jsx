@@ -1,30 +1,45 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, ShieldCheck } from 'lucide-react';
+import { Lock, ShieldCheck, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const LoginStaff = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
     const { loginEmail } = useAuth();
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setIsLoggingIn(true);
+
         try {
-            await loginEmail(email, password);
-            // Cek role setelah login berhasil di handle AuthContext
-            if (email === 'admin@cafe.com') {
+            // 1. Proses Login ke Firebase
+            const userCredential = await loginEmail(email, password);
+            const userEmail = userCredential.user.email.toLowerCase();
+
+            // 2. Cek Email & Redirect Sesuai Hak Akses
+            if (userEmail === 'admin@cafe.com') {
+                toast.success("Login Admin Berhasil");
                 navigate('/admin');
-            } else if (email === 'head@cafe.com') {
-                navigate('/head');
-            } else {
-                toast.error("Akun ini bukan akun Staff!");
-                navigate('/'); // Tendang ke user menu jika user biasa coba login disini
             }
+            else if (userEmail === 'head@cafe.com') {
+                toast.success("Selamat Datang Kepala Toko");
+                navigate('/head');
+            }
+            else {
+                // Kalau user biasa iseng login disini
+                toast.error("Anda bukan Staff!");
+                navigate('/');
+            }
+
         } catch (err) {
-            toast.error("Akses Ditolak: Email/Password Salah");
+            console.error(err);
+            toast.error("Email atau Password Salah");
+        } finally {
+            setIsLoggingIn(false);
         }
     };
 
@@ -66,8 +81,12 @@ const LoginStaff = () => {
                         </div>
                     </div>
 
-                    <button type="submit" className="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-500 transition shadow-lg shadow-orange-900/20">
-                        MASUK DASHBOARD
+                    <button
+                        type="submit"
+                        disabled={isLoggingIn}
+                        className="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-500 transition shadow-lg shadow-orange-900/20 flex justify-center items-center gap-2"
+                    >
+                        {isLoggingIn ? <Loader2 className="animate-spin" /> : 'MASUK DASHBOARD'}
                     </button>
                 </form>
 
