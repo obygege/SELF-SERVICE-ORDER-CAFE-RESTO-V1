@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { useReactToPrint } from 'react-to-print';
-import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Save } from 'lucide-react';
+import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// KOMPONEN STRUK
 const Receipt = React.forwardRef(({ order }, ref) => {
     if (!order) return <div ref={ref}></div>;
+    const isPaid = order.paymentStatus === 'paid';
 
     return (
         <div ref={ref} className="bg-white text-black font-mono p-4" style={{ width: '80mm', margin: '0' }}>
@@ -35,7 +35,9 @@ const Receipt = React.forwardRef(({ order }, ref) => {
             <div className="text-xs space-y-1 font-bold">
                 <div className="flex justify-between"><span>Total</span><span>Rp {order.total?.toLocaleString('id-ID')}</span></div>
             </div>
-            <div className="text-center mt-4 text-xs font-bold">*** LUNAS ***</div>
+            <div className="text-center mt-4 text-xs font-bold border-2 border-black p-1">
+                {isPaid ? '*** LUNAS ***' : 'BELUM LUNAS / TAGIHAN'}
+            </div>
         </div>
     );
 });
@@ -65,7 +67,13 @@ const AdminLiveOrders = () => {
         return () => unsub();
     }, []);
 
-    // --- PERBAIKAN LOGIKA STATUS DISINI ---
+    const confirmPayment = async (id) => {
+        if (window.confirm("Konfirmasi pembayaran tunai diterima?")) {
+            await updateDoc(doc(db, "orders", id), { paymentStatus: 'paid' });
+            toast.success("Pembayaran Dikonfirmasi LUNAS!");
+        }
+    };
+
     const changeStatus = async (id, currentStatus) => {
         let nextStatus = '';
         let extraUpdates = {};
@@ -74,15 +82,11 @@ const AdminLiveOrders = () => {
         else if (currentStatus === 'cooking') nextStatus = 'ready';
         else if (currentStatus === 'ready') {
             nextStatus = 'completed';
-            // WAJIB: Jika selesai, tandai LUNAS (paid) agar masuk laporan
             extraUpdates = { paymentStatus: 'paid' };
         }
 
         if (nextStatus) {
-            await updateDoc(doc(db, "orders", id), {
-                status: nextStatus,
-                ...extraUpdates
-            });
+            await updateDoc(doc(db, "orders", id), { status: nextStatus, ...extraUpdates });
             toast.success(`Status: ${nextStatus.toUpperCase()}`);
         }
     };
@@ -116,54 +120,89 @@ const AdminLiveOrders = () => {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BellRing className="text-orange-600" /> Pesanan Masuk</h1>
-                <div className="relative">
+                <div className="relative w-full md:w-auto">
                     <Search className="absolute left-3 top-3 text-gray-400" size={18} />
-                    <input type="text" placeholder="Cari..." className="pl-10 pr-4 py-2 border rounded-xl outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    <input type="text" placeholder="Cari..." className="pl-10 pr-4 py-2 border rounded-xl outline-none w-full md:w-64" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredOrders.map(order => (
-                    <div key={order.id} className="bg-white rounded-xl shadow-sm border-l-4 border-orange-500 p-4 relative transition hover:shadow-md">
-                        <div className="flex justify-between items-start mb-2">
-                            <div>
-                                <span className="font-bold text-lg">Meja {order.tableNumber}</span>
-                                <p className="text-xs text-gray-500">{order.customerName}</p>
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {filteredOrders.map(order => {
+                    const isCashUnpaid = order.paymentMethod === 'Cash' && order.paymentStatus !== 'paid';
+                    const isPaid = order.paymentStatus === 'paid';
+
+                    return (
+                        <div key={order.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-4 relative transition hover:shadow-md ${isCashUnpaid ? 'border-red-500' : 'border-orange-500'}`}>
+                            {/* HEADER KARTU */}
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <span className="font-bold text-lg">Meja {order.tableNumber}</span>
+                                    <p className="text-xs text-gray-500 truncate w-32">{order.customerName}</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="px-2 py-1 rounded text-[10px] font-bold uppercase block mb-1 bg-gray-100">{order.status}</span>
+
+                                    {/* INDIKATOR PEMBAYARAN */}
+                                    {isPaid ? (
+                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700 flex items-center justify-end gap-1">
+                                            <CheckCircle size={10} /> LUNAS
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-100 text-red-700 flex items-center justify-end gap-1 animate-pulse">
+                                            <AlertCircle size={10} /> BELUM BAYAR
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <span className="px-2 py-1 rounded text-[10px] font-bold uppercase block mb-1 bg-gray-100">{order.status}</span>
-                                <p className="text-[10px] text-gray-500 font-bold bg-yellow-100 px-1 rounded">{order.orderId}</p>
+
+                            <div className="flex justify-between items-center mb-3">
+                                <div className={`text-xs font-bold py-1 px-2 rounded inline-block ${order.diningOption === 'takeaway' ? 'bg-purple-100 text-purple-700' : 'bg-orange-50 text-orange-700'}`}>
+                                    {order.diningOption === 'takeaway' ? '🛍️ AMBIL' : '🍽️ DINE IN'}
+                                </div>
+                                <p className="text-xs font-mono font-bold">{order.paymentMethod}</p>
+                            </div>
+
+                            {order.note && <div className="bg-yellow-50 p-2 rounded border border-yellow-200 text-xs italic mb-2 text-gray-600">"{order.note}"</div>}
+
+                            <div className="space-y-1 mb-4 text-sm border-t border-b py-2 border-dashed">
+                                {order.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between"><span><b>{item.qty}x</b> {item.name}</span></div>
+                                ))}
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                {/* TOMBOL KONFIRMASI BAYAR KHUSUS CASH */}
+                                {isCashUnpaid && (
+                                    <button
+                                        onClick={() => confirmPayment(order.id)}
+                                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold text-sm flex items-center justify-center gap-2 mb-1"
+                                    >
+                                        <Banknote size={16} /> Terima Pembayaran (Rp {order.total.toLocaleString('id-ID')})
+                                    </button>
+                                )}
+
+                                <div className="flex gap-2">
+                                    <button onClick={() => changeStatus(order.id, order.status)} className="flex-1 bg-slate-800 text-white py-2 rounded text-sm font-bold hover:bg-slate-700 flex justify-center items-center gap-2">
+                                        {order.status === 'pending' && <><ChefHat size={16} /> Masak</>}
+                                        {order.status === 'cooking' && <><BellRing size={16} /> Siap</>}
+                                        {order.status === 'ready' && <><CheckCircle size={16} /> Selesai</>}
+                                    </button>
+                                    <button onClick={() => setEditingOrder(order)} className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 border border-blue-200"><Edit2 size={18} /></button>
+                                    <button onClick={() => setPrintOrder(order)} className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300"><Printer size={18} /></button>
+                                </div>
                             </div>
                         </div>
-                        <div className={`text-xs font-bold py-1 px-2 rounded mb-3 inline-block ${order.diningOption === 'takeaway' ? 'bg-purple-100 text-purple-700' : 'bg-orange-50 text-orange-700'}`}>
-                            {order.diningOption === 'takeaway' ? '🛍️ AMBIL SENDIRI' : '🍽️ DINE IN'}
-                        </div>
-                        {order.note && <div className="bg-yellow-50 p-2 rounded border border-yellow-200 text-xs italic mb-2 text-gray-600">"{order.note}"</div>}
-                        <div className="space-y-1 mb-4 text-sm border-t border-b py-2 border-dashed">
-                            {order.items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between"><span><b>{item.qty}x</b> {item.name}</span></div>
-                            ))}
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => changeStatus(order.id, order.status)} className="flex-1 bg-slate-800 text-white py-2 rounded text-sm font-bold hover:bg-slate-700 flex justify-center items-center gap-2">
-                                {order.status === 'pending' && <><ChefHat size={16} /> Masak</>}
-                                {order.status === 'cooking' && <><BellRing size={16} /> Siap</>}
-                                {order.status === 'ready' && <><CheckCircle size={16} /> Selesai</>}
-                            </button>
-                            <button onClick={() => setEditingOrder(order)} className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 border border-blue-200"><Edit2 size={18} /></button>
-                            <button onClick={() => setPrintOrder(order)} className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300"><Printer size={18} /></button>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {editingOrder && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between mb-4"><h3 className="font-bold">Edit Order</h3><button onClick={() => setEditingOrder(null)}><X /></button></div>
-                        <div className="space-y-3 max-h-[50vh] overflow-y-auto mb-4">
+                        <div className="space-y-3 mb-4">
                             {editingOrder.items.map((item, idx) => (
                                 <div key={idx} className="flex justify-between items-center border p-2 rounded">
                                     <span className="text-sm font-medium w-1/2 truncate">{item.name}</span>
@@ -179,10 +218,7 @@ const AdminLiveOrders = () => {
                     </div>
                 </div>
             )}
-
-            <div style={{ position: "fixed", top: 0, left: 0, opacity: 0, pointerEvents: "none", zIndex: -50 }}>
-                <Receipt ref={componentRef} order={printOrder} />
-            </div>
+            <div style={{ position: "fixed", top: 0, left: 0, opacity: 0, pointerEvents: "none", zIndex: -50 }}><Receipt ref={componentRef} order={printOrder} /></div>
         </div>
     );
 };
