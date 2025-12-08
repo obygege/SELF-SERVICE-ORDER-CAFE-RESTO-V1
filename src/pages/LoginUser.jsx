@@ -14,26 +14,11 @@ const LoginUser = () => {
     const [checkingLoc, setCheckingLoc] = useState(false);
     const [storeConfig, setStoreConfig] = useState(null);
 
-    const { currentUser, loginEmail, registerEmail, loginGoogle } = useAuth();
+    const { currentUser, loginEmail, registerEmail, loginGoogle, logout } = useAuth();
 
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const tableParam = searchParams.get('table');
-
-    useEffect(() => {
-        if (tableParam) {
-            localStorage.setItem('activeTable', tableParam);
-        }
-
-        if (currentUser) {
-            const targetTable = tableParam || localStorage.getItem('activeTable');
-            if (targetTable) {
-                navigate(`/?table=${targetTable}`, { replace: true });
-            } else {
-                navigate('/', { replace: true });
-            }
-        }
-    }, [currentUser, tableParam, navigate]);
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -72,7 +57,7 @@ const LoginUser = () => {
             }
 
             setCheckingLoc(true);
-            toast("Memeriksa lokasi...", { icon: '📍' });
+            toast("Verifikasi Lokasi...", { icon: '📍' });
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -85,7 +70,7 @@ const LoginUser = () => {
                     if (distance <= storeConfig.radius) {
                         resolve(true);
                     } else {
-                        toast.error(`Akses Ditolak! Anda berjarak ${distance.toFixed(2)} km dari lokasi.`);
+                        toast.error(`Akses Ditolak! Jarak Anda ${distance.toFixed(2)} km. Wajib di lokasi Cafe.`);
                         reject(false);
                     }
                 },
@@ -94,10 +79,37 @@ const LoginUser = () => {
                     toast.error("Wajib izinkan akses Lokasi!");
                     reject(false);
                 },
-                { enableHighAccuracy: true, timeout: 10000 }
+                { enableHighAccuracy: true, timeout: 5000 }
             );
         });
     };
+
+    useEffect(() => {
+        if (tableParam) {
+            localStorage.setItem('activeTable', tableParam);
+        }
+
+        const checkAndRedirect = async () => {
+            if (currentUser) {
+                try {
+                    await verifyLocation();
+                    const targetTable = tableParam || localStorage.getItem('activeTable');
+                    if (targetTable) {
+                        navigate(`/?table=${targetTable}`, { replace: true });
+                    } else {
+                        navigate('/', { replace: true });
+                    }
+                } catch (error) {
+                    await logout();
+                    navigate('/login');
+                }
+            }
+        };
+
+        if (currentUser && storeConfig) {
+            checkAndRedirect();
+        }
+    }, [currentUser, storeConfig, tableParam, navigate, logout]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -108,14 +120,14 @@ const LoginUser = () => {
 
             if (isRegister) {
                 await registerEmail(email, password, name);
-                toast.success("Akun berhasil dibuat!");
+                toast.success("Akun dibuat!");
             } else {
                 await loginEmail(email, password);
                 toast.success("Berhasil Masuk!");
             }
         } catch (err) {
             if (err !== false) {
-                toast.error(isRegister ? "Gagal Daftar" : "Email/Password Salah");
+                toast.error("Gagal Masuk/Daftar");
             }
         }
     };
@@ -127,15 +139,12 @@ const LoginUser = () => {
             await verifyLocation();
             await loginGoogle();
         } catch (err) {
-            if (err !== false) {
-                if (err.code !== 'auth/popup-closed-by-user') {
-                    toast.error("Gagal Login Google");
-                }
+            if (err !== false && err.code !== 'auth/popup-closed-by-user') {
+                toast.error("Gagal Login Google");
             }
         }
     };
 
-    // HELPER: Membersihkan nama meja (hapus kata "Meja" kalau ada, biar gak double)
     const formatTableDisplay = (tableName) => {
         if (!tableName) return "";
         return tableName.toString().replace(/Meja\s*/i, "").trim();
@@ -154,10 +163,8 @@ const LoginUser = () => {
                         {isRegister ? 'Buat Akun Baru' : 'Selamat Datang'}
                     </h2>
                     <p className="text-gray-500 text-sm mt-1">
-                        Sistem akan memverifikasi lokasi Anda.
+                        Wajib berada di lokasi cafe untuk login.
                     </p>
-
-                    {/* PERBAIKAN TAMPILAN MEJA DISINI */}
                     {tableParam && (
                         <div className="mt-2 inline-block bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">
                             Meja {formatTableDisplay(tableParam)}
@@ -172,7 +179,7 @@ const LoginUser = () => {
                         className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 ${checkingLoc ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
                     >
                         {checkingLoc ? <Loader2 className="animate-spin w-5 h-5" /> : <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />}
-                        {checkingLoc ? 'Mengecek Lokasi...' : (isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google')}
+                        {checkingLoc ? 'Cek Lokasi...' : (isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google')}
                     </button>
 
                     <div className="relative mb-6">
@@ -187,12 +194,10 @@ const LoginUser = () => {
                                 <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} />
                             </div>
                         )}
-
                         <div className="relative">
                             <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
                             <input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
                         </div>
-
                         <div className="relative">
                             <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
                             <input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} />
