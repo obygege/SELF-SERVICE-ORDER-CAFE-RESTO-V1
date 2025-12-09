@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '../firebase';
+import { auth, db, googleProvider } from '../firebase';
 import {
     signInWithPopup,
     signInWithEmailAndPassword,
@@ -21,20 +21,10 @@ export const AuthProvider = ({ children }) => {
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Login Google
-    const loginGoogle = async () => {
-        try {
-            const provider = new GoogleAuthProvider();
-            // Force account selection (biar bisa ganti akun kalau logout)
-            provider.setCustomParameters({
-                prompt: 'select_account'
-            });
-            const result = await signInWithPopup(auth, provider);
-            return result;
-        } catch (error) {
-            console.error("AuthContext Google Error:", error);
-            throw error;
-        }
+    const loginGoogle = () => {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        return signInWithPopup(auth, provider);
     };
 
     const loginEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
@@ -56,16 +46,20 @@ export const AuthProvider = ({ children }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
+                    // Ambil Role dari Firestore
                     const docRef = doc(db, "users", user.uid);
                     const docSnap = await getDoc(docRef);
+
                     if (docSnap.exists()) {
-                        setUserRole(docSnap.data().role);
+                        const roleData = docSnap.data().role;
+                        setUserRole(roleData);
+                        console.log("User Role Loaded:", roleData);
                     } else {
-                        setUserRole('user');
+                        setUserRole('user'); // Default
                     }
                     setCurrentUser(user);
                 } catch (error) {
-                    console.error("Error fetching role:", error);
+                    console.error("Auth Error:", error);
                     setCurrentUser(user);
                     setUserRole('user');
                 }
