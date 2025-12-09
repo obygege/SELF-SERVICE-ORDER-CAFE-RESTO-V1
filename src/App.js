@@ -15,9 +15,9 @@ import AdminHistory from './pages/AdminHistory';
 import AdminProducts from './pages/AdminProducts';
 import AdminTables from './pages/AdminTables';
 import AdminReports from './pages/AdminReports';
+import AdminSettings from './pages/AdminSettings';
 import UserProfile from './pages/UserProfile';
 import SetupPage from './pages/SetupPage';
-import AdminSettings from './pages/AdminSettings';
 import AdminLayout from './layouts/AdminLayout';
 
 const PrivateRoute = ({ children, allowedRoles }) => {
@@ -49,7 +49,6 @@ function App() {
             <Route path="/cart" element={<PrivateRoute allowedRoles={['user', 'admin', 'head']}><CartPage /></PrivateRoute>} />
             <Route path="/history" element={<PrivateRoute allowedRoles={['user', 'admin', 'head']}><OrderHistory /></PrivateRoute>} />
 
-            {/* RUTE ADMIN */}
             <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<AdminHome />} />
               <Route path="live-orders" element={<AdminLiveOrders />} />
@@ -57,23 +56,18 @@ function App() {
               <Route path="products" element={<AdminProducts />} />
               <Route path="tables" element={<AdminTables />} />
               <Route path="reports" element={<AdminReports />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
 
-            {/* RUTE KEPALA TOKO (Akses Laporan Saja) */}
             <Route path="/head" element={<PrivateRoute allowedRoles={['head', 'admin']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<AdminReports />} />
             </Route>
 
-            {/* PROFILE (Admin & Kepala Bisa Akses) */}
             <Route path="/profile" element={<PrivateRoute allowedRoles={['admin', 'head']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<UserProfile />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" />} />
-            <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminLayout /></PrivateRoute>}>
-              {/* ... Route lain ... */}
-              <Route path="settings" element={<AdminSettings />} /> {/* Route Baru */}
-            </Route>
           </Routes>
         </Router>
       </CartProvider>
