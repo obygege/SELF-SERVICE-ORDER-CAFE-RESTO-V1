@@ -75,12 +75,13 @@ const AdminProducts = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-800">Manajemen Produk</h1>
-                <button onClick={() => setShowModal(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-orange-700 shadow-lg">
-                    <Plus size={20} /> Tambah Menu Baru
+                <button onClick={() => setShowModal(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-orange-700 shadow-lg text-sm md:text-base">
+                    <Plus size={20} /> <span className="hidden md:inline">Tambah Menu Baru</span><span className="md:hidden">Baru</span>
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            {/* --- TABLE VIEW (DESKTOP) --- */}
+            <div className="hidden md:block bg-white rounded-xl shadow-sm border overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100 text-gray-600 text-sm uppercase">
                         <tr>
@@ -117,6 +118,27 @@ const AdminProducts = () => {
                         ))}
                     </tbody>
                 </table>
+            </div>
+
+            {/* --- CARD VIEW (MOBILE) --- */}
+            <div className="md:hidden grid gap-4">
+                {products.map(item => (
+                    <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border flex items-center gap-4">
+                        <img src={item.image} alt="" className="w-16 h-16 rounded-lg object-cover bg-gray-100 flex-shrink-0" onError={(e) => e.target.src = 'https://via.placeholder.com/150'} />
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-800 truncate">{item.name}</h3>
+                            <p className="text-xs text-gray-500 mb-1">{item.category}</p>
+                            <div className="flex justify-between items-center">
+                                <span className="text-orange-600 font-bold">Rp {item.price.toLocaleString()}</span>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${item.stock <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>Stok: {item.stock}</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => handleEdit(item)} className="bg-blue-50 text-blue-600 p-2 rounded-lg hover:bg-blue-100"><Edit2 size={16} /></button>
+                            <button onClick={() => handleDelete(item.id)} className="bg-red-50 text-red-600 p-2 rounded-lg hover:bg-red-100"><Trash2 size={16} /></button>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {showModal && (
