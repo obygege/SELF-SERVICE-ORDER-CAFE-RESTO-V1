@@ -12,7 +12,6 @@ const LoginUser = () => {
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
 
-    // State Validasi Lokasi
     const [checkingLoc, setCheckingLoc] = useState(false);
     const [storeConfig, setStoreConfig] = useState(null);
 
@@ -21,29 +20,23 @@ const LoginUser = () => {
     const [searchParams] = useSearchParams();
     const tableParam = searchParams.get('table');
 
-    // 1. Ambil Data Lokasi dari Database (settings/location)
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                // Pastikan path ini SAMA dengan yang disimpan AdminSettings
                 const docRef = doc(db, "settings", "location");
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     setStoreConfig(docSnap.data());
-                } else {
-                    // Jika admin belum set, set radius 0 (atau bypass jika perlu)
-                    console.warn("Lokasi toko belum diatur oleh admin.");
                 }
             } catch (error) {
-                console.error("Gagal ambil config lokasi", error);
+                console.error(error);
             }
         };
         fetchConfig();
     }, []);
 
-    // Rumus Haversine untuk hitung jarak
     const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
-        const R = 6371; // Radius bumi dalam km
+        const R = 6371;
         const dLat = deg2rad(lat2 - lat1);
         const dLon = deg2rad(lon2 - lon1);
         const a =
@@ -55,17 +48,14 @@ const LoginUser = () => {
 
     const deg2rad = (deg) => deg * (Math.PI / 180);
 
-    // Fungsi Validasi Lokasi
     const verifyLocation = () => {
         return new Promise((resolve, reject) => {
-            // Jika admin belum setting lokasi, izinkan saja (mode development)
             if (!storeConfig || !storeConfig.latitude) {
-                toast("Lokasi toko belum diatur Admin. Login diizinkan (Dev Mode).", { icon: '⚠️' });
                 return resolve(true);
             }
 
             if (!navigator.geolocation) {
-                toast.error("Browser Anda tidak mendukung GPS.");
+                toast.error("Browser tidak mendukung GPS.");
                 return reject("Browser tidak support GPS");
             }
 
@@ -77,7 +67,6 @@ const LoginUser = () => {
                     const userLat = position.coords.latitude;
                     const userLng = position.coords.longitude;
 
-                    // Hitung Jarak
                     const distance = getDistanceFromLatLonInKm(
                         userLat, userLng,
                         storeConfig.latitude, storeConfig.longitude
@@ -86,11 +75,10 @@ const LoginUser = () => {
                     setCheckingLoc(false);
                     toast.dismiss(toastId);
 
-                    // Validasi Jarak (storeConfig.radiusKM biasanya dalam KM)
-                    const maxRadius = storeConfig.radiusKM || 0.1; // Default 100m jika null
+                    const maxRadius = storeConfig.radiusKM || 0.1;
 
                     if (distance <= maxRadius) {
-                        toast.success(`Lokasi Valid! Jarak: ${(distance * 1000).toFixed(0)}m`);
+                        toast.success(`Lokasi Valid!`);
                         resolve(true);
                     } else {
                         toast.error(`Terlalu Jauh! Jarak: ${(distance * 1000).toFixed(0)}m (Max: ${maxRadius * 1000}m)`);
@@ -108,19 +96,15 @@ const LoginUser = () => {
         });
     };
 
-    // 2. Handle Login Email/Password dengan Validasi
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (checkingLoc) return;
 
         try {
-            // Cek Lokasi Dulu!
             await verifyLocation();
 
-            // Jika Lokasi OK, Lanjut Login Firebase
             if (isRegister) {
                 const res = await registerEmail(email, password);
-                // Simpan data user tambahan
                 await setDoc(doc(db, "users", res.user.uid), {
                     uid: res.user.uid,
                     name: name,
@@ -134,37 +118,25 @@ const LoginUser = () => {
                 toast.success("Berhasil Masuk!");
             }
 
-            // Redirect ke Menu (bawa parameter meja jika ada)
-            if (tableParam) {
-                navigate(`/?table=${tableParam}`);
-            } else {
-                navigate('/');
-            }
+            navigate('/menu');
 
         } catch (err) {
-            // Error handling (bisa error lokasi atau error firebase)
             console.error(err);
-            if (err.code) { // Error dari Firebase
-                toast.error(isRegister ? "Gagal Daftar (Email sudah ada?)" : "Email/Password Salah");
+            if (err !== "Lokasi Kejauhan" && err !== "GPS Error/Denied") {
+                toast.error(isRegister ? "Gagal Daftar" : "Email/Password Salah");
             }
         }
     };
 
-    // 3. Handle Login Google dengan Validasi
     const handleGoogle = async () => {
         if (checkingLoc) return;
 
         try {
-            // Cek Lokasi Dulu!
             await verifyLocation();
 
-            // Jika Lokasi OK, Lanjut Login Google
             const res = await loginGoogle();
 
-            // Cek apakah user baru, jika ya simpan ke DB
             const userRef = doc(db, "users", res.user.uid);
-            const userSnap = await getDoc(db, "users", res.user.uid); // Menggunakan getDoc helper auth context jika ada, atau import manual
-            // Note: best practice cek di context atau setDoc dengan merge:true
             await setDoc(userRef, {
                 uid: res.user.uid,
                 name: res.user.displayName,
@@ -173,11 +145,7 @@ const LoginUser = () => {
                 lastLogin: new Date()
             }, { merge: true });
 
-            if (tableParam) {
-                navigate(`/?table=${tableParam}`);
-            } else {
-                navigate('/');
-            }
+            navigate('/menu');
 
         } catch (err) {
             if (err !== "Lokasi Kejauhan" && err !== "GPS Error/Denied") {
@@ -202,7 +170,6 @@ const LoginUser = () => {
                         Wajib berada di lokasi cafe untuk login.
                     </p>
 
-                    {/* Indikator Status Toko */}
                     <div className="flex items-center justify-center gap-2 mb-4">
                         <span className={`text-[10px] px-2 py-1 rounded-full font-bold border flex items-center gap-1 ${storeConfig ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
                             <Navigation size={10} /> {storeConfig ? "Lokasi Toko Aktif" : "Menunggu Data Toko..."}
