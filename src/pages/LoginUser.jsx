@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Lock, Mail, User, UtensilsCrossed, Loader2, Navigation } from 'lucide-react';
+import { Lock, Mail, User, UtensilsCrossed, Loader2, Navigation, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const LoginUser = () => {
@@ -12,14 +12,18 @@ const LoginUser = () => {
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
 
-    const [checkingLoc, setCheckingLoc] = useState(false);
+    // State Validasi Lokasi
     const [storeConfig, setStoreConfig] = useState(null);
+    const [isAllowed, setIsAllowed] = useState(false);
+    const [gpsStatus, setGpsStatus] = useState('loading');
+    const [distance, setDistance] = useState(null);
 
     const { loginEmail, registerEmail, loginGoogle } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const tableParam = searchParams.get('table');
 
+    // 1. Ambil Config Lokasi
     useEffect(() => {
         const fetchConfig = async () => {
             try {
@@ -27,14 +31,22 @@ const LoginUser = () => {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     setStoreConfig(docSnap.data());
+                } else {
+                    // Jika admin belum set lokasi, izinkan login
+                    setGpsStatus('allowed');
+                    setIsAllowed(true);
                 }
             } catch (error) {
                 console.error(error);
+                // Fallback jika error, izinkan login
+                setIsAllowed(true);
+                setGpsStatus('allowed');
             }
         };
         fetchConfig();
     }, []);
 
+    // Rumus Jarak
     const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
         const R = 6371;
         const dLat = deg2rad(lat2 - lat1);
@@ -48,63 +60,67 @@ const LoginUser = () => {
 
     const deg2rad = (deg) => deg * (Math.PI / 180);
 
-    const verifyLocation = () => {
-        return new Promise((resolve, reject) => {
-            if (!storeConfig || !storeConfig.latitude) {
-                return resolve(true);
-            }
+    // 2. Cek GPS
+    useEffect(() => {
+        if (!storeConfig) return;
 
-            if (!navigator.geolocation) {
-                toast.error("Browser tidak mendukung GPS.");
-                return reject("Browser tidak support GPS");
-            }
+        // Jika latitude 0 atau tidak ada, anggap mode bebas (boleh login)
+        if (!storeConfig.latitude) {
+            setIsAllowed(true);
+            setGpsStatus('allowed');
+            return;
+        }
 
-            setCheckingLoc(true);
-            const toastId = toast.loading("Memeriksa lokasi Anda...");
+        if (!navigator.geolocation) {
+            setGpsStatus('error');
+            return;
+        }
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const userLat = position.coords.latitude;
-                    const userLng = position.coords.longitude;
+        const watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
 
-                    const distance = getDistanceFromLatLonInKm(
-                        userLat, userLng,
-                        storeConfig.latitude, storeConfig.longitude
-                    );
+                const dist = getDistanceFromLatLonInKm(userLat, userLng, storeConfig.latitude, storeConfig.longitude);
+                setDistance(dist);
 
-                    setCheckingLoc(false);
-                    toast.dismiss(toastId);
+                const maxRadius = storeConfig.radiusKM || 0.1;
 
-                    const maxRadius = storeConfig.radiusKM || 0.1;
+                if (dist <= maxRadius) {
+                    setIsAllowed(true);
+                    setGpsStatus('allowed');
+                } else {
+                    setIsAllowed(false);
+                    setGpsStatus('denied');
+                }
+            },
+            (error) => {
+                console.error("GPS Error:", error);
+                setGpsStatus('error');
+            },
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+        );
 
-                    if (distance <= maxRadius) {
-                        toast.success(`Lokasi Valid!`);
-                        resolve(true);
-                    } else {
-                        toast.error(`Terlalu Jauh! Jarak: ${(distance * 1000).toFixed(0)}m (Max: ${maxRadius * 1000}m)`);
-                        reject("Lokasi Kejauhan");
-                    }
-                },
-                (error) => {
-                    setCheckingLoc(false);
-                    toast.dismiss(toastId);
-                    toast.error("Wajib aktifkan GPS untuk Login!");
-                    reject("GPS Error/Denied");
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        });
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, [storeConfig]);
+
+    // Handle Redirect setelah Login Sukses
+    const handleSuccessRedirect = () => {
+        if (tableParam) {
+            navigate(`/?table=${tableParam}`);
+        } else {
+            navigate('/');
+        }
     };
 
+    // --- HANDLE LOGIN EMAIL ---
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (checkingLoc) return;
+        if (!isAllowed) return toast.error("Lokasi kejauhan! Mendekat ke Cafe.");
 
         try {
-            await verifyLocation();
-
             if (isRegister) {
-                const res = await registerEmail(email, password);
+                const res = await registerEmail(email, password, name);
                 await setDoc(doc(db, "users", res.user.uid), {
                     uid: res.user.uid,
                     name: name,
@@ -117,25 +133,27 @@ const LoginUser = () => {
                 await loginEmail(email, password);
                 toast.success("Berhasil Masuk!");
             }
-
-            navigate('/menu');
-
+            handleSuccessRedirect();
         } catch (err) {
             console.error(err);
-            if (err !== "Lokasi Kejauhan" && err !== "GPS Error/Denied") {
-                toast.error(isRegister ? "Gagal Daftar" : "Email/Password Salah");
-            }
+            toast.error(isRegister ? "Gagal Daftar (Email terpakai?)" : "Email/Password Salah");
         }
     };
 
+    // --- HANDLE LOGIN GOOGLE ---
     const handleGoogle = async () => {
-        if (checkingLoc) return;
+        // Cek lokasi dulu secara sinkron (variabel state)
+        if (!isAllowed) {
+            if (gpsStatus === 'loading') toast("Sedang mencari lokasi...");
+            else if (gpsStatus === 'error') toast.error("Aktifkan GPS Browser Anda!");
+            else toast.error("Lokasi Anda terlalu jauh dari Cafe.");
+            return;
+        }
 
         try {
-            await verifyLocation();
-
             const res = await loginGoogle();
 
+            // Simpan/Update data user di Firestore
             const userRef = doc(db, "users", res.user.uid);
             await setDoc(userRef, {
                 uid: res.user.uid,
@@ -145,11 +163,16 @@ const LoginUser = () => {
                 lastLogin: new Date()
             }, { merge: true });
 
-            navigate('/menu');
-
+            handleSuccessRedirect();
         } catch (err) {
-            if (err !== "Lokasi Kejauhan" && err !== "GPS Error/Denied") {
-                toast.error("Gagal Login Google");
+            console.error("Google Login Error Full:", err);
+
+            if (err.code === 'auth/popup-closed-by-user') {
+                toast("Login dibatalkan");
+            } else if (err.code === 'auth/unauthorized-domain') {
+                toast.error("Domain belum diizinkan di Firebase Console!");
+            } else {
+                toast.error("Gagal Login Google: " + err.message);
             }
         }
     };
@@ -170,21 +193,33 @@ const LoginUser = () => {
                         Wajib berada di lokasi cafe untuk login.
                     </p>
 
-                    <div className="flex items-center justify-center gap-2 mb-4">
-                        <span className={`text-[10px] px-2 py-1 rounded-full font-bold border flex items-center gap-1 ${storeConfig ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                            <Navigation size={10} /> {storeConfig ? "Lokasi Toko Aktif" : "Menunggu Data Toko..."}
+                    {/* STATUS BAR GPS */}
+                    <div className="flex flex-col items-center justify-center gap-1 mb-4">
+                        <span className={`text-[10px] px-3 py-1.5 rounded-full font-bold border flex items-center gap-1 transition-colors ${gpsStatus === 'allowed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                gpsStatus === 'denied' ? 'bg-red-50 text-red-700 border-red-200' :
+                                    'bg-gray-100 text-gray-500 border-gray-200'
+                            }`}>
+                            <Navigation size={12} />
+                            {gpsStatus === 'loading' && "Mencari Lokasi..."}
+                            {gpsStatus === 'allowed' && "Lokasi Valid - Silakan Masuk"}
+                            {gpsStatus === 'denied' && "Lokasi Kejauhan"}
+                            {gpsStatus === 'error' && "GPS Error / Mati"}
                         </span>
+                        {distance !== null && <span className="text-[10px] text-gray-400">Jarak: {(distance * 1000).toFixed(0)}m</span>}
                     </div>
                 </div>
 
                 <div className="px-8 pb-8">
+                    {/* GOOGLE BUTTON */}
                     <button
                         onClick={handleGoogle}
-                        disabled={checkingLoc}
-                        className="w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50 transition mb-6 font-medium text-gray-700"
+                        // Matikan tombol jika lokasi belum valid (kecuali mode dev/loading)
+                        disabled={!isAllowed}
+                        className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 
+                        ${!isAllowed ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-gray-50 active:scale-95'}`}
                     >
-                        {checkingLoc ? <Loader2 className="animate-spin w-5 h-5" /> : <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />}
-                        {checkingLoc ? 'Memeriksa Lokasi...' : (isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google')}
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
+                        {isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google'}
                     </button>
 
                     <div className="relative mb-6">
@@ -196,20 +231,20 @@ const LoginUser = () => {
                         {isRegister && (
                             <div className="relative">
                                 <User className="absolute left-3 top-3 text-gray-400" size={18} />
-                                <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} disabled={checkingLoc} />
+                                <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} disabled={!isAllowed} />
                             </div>
                         )}
                         <div className="relative">
                             <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={checkingLoc} />
+                            <input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isAllowed} />
                         </div>
                         <div className="relative">
                             <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={checkingLoc} />
+                            <input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={!isAllowed} />
                         </div>
 
-                        <button type="submit" className="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700 transition shadow-lg shadow-orange-200 flex justify-center items-center gap-2" disabled={checkingLoc}>
-                            {checkingLoc ? <><Loader2 className="animate-spin w-5 h-5" /> Memvalidasi...</> : (isRegister ? 'Daftar Sekarang' : 'Masuk Aplikasi')}
+                        <button type="submit" className={`w-full bg-orange-600 text-white py-3 rounded-lg font-bold transition shadow-lg shadow-orange-200 flex justify-center items-center gap-2 ${!isAllowed ? 'opacity-50 cursor-not-allowed shadow-none' : 'hover:bg-orange-700 active:scale-95'}`} disabled={!isAllowed}>
+                            {isRegister ? 'Daftar Sekarang' : 'Masuk Aplikasi'}
                         </button>
                     </form>
 

@@ -1,6 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, signInWithPopup, createUserWithEmailAndPassword, GoogleAuthProvider } from 'firebase/auth';
+import {
+    signInWithPopup,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    updatePassword,
+    updateProfile,
+    GoogleAuthProvider
+} from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
@@ -11,6 +20,37 @@ export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // Login Google
+    const loginGoogle = async () => {
+        try {
+            const provider = new GoogleAuthProvider();
+            // Force account selection (biar bisa ganti akun kalau logout)
+            provider.setCustomParameters({
+                prompt: 'select_account'
+            });
+            const result = await signInWithPopup(auth, provider);
+            return result;
+        } catch (error) {
+            console.error("AuthContext Google Error:", error);
+            throw error;
+        }
+    };
+
+    const loginEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
+
+    const registerEmail = async (email, password, name) => {
+        const res = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(res.user, { displayName: name });
+        return res;
+    }
+
+    const logout = () => {
+        setUserRole(null);
+        return signOut(auth);
+    };
+
+    const changePassword = (newPassword) => updatePassword(currentUser, newPassword);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -23,11 +63,12 @@ export const AuthProvider = ({ children }) => {
                     } else {
                         setUserRole('user');
                     }
-                } catch (e) {
-                    console.error("Error fetching user role", e);
+                    setCurrentUser(user);
+                } catch (error) {
+                    console.error("Error fetching role:", error);
+                    setCurrentUser(user);
                     setUserRole('user');
                 }
-                setCurrentUser(user);
             } else {
                 setCurrentUser(null);
                 setUserRole(null);
@@ -37,22 +78,19 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, []);
 
-    const loginEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
-
-    const registerEmail = (email, password) => createUserWithEmailAndPassword(auth, email, password);
-
-    const loginGoogle = () => {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({
-            prompt: 'select_account'
-        });
-        return signInWithPopup(auth, provider);
+    const value = {
+        currentUser,
+        userRole,
+        loading,
+        loginGoogle,
+        loginEmail,
+        registerEmail,
+        logout,
+        changePassword
     };
 
-    const logout = () => signOut(auth);
-
     return (
-        <AuthContext.Provider value={{ currentUser, userRole, loading, loginEmail, registerEmail, loginGoogle, logout }}>
+        <AuthContext.Provider value={value}>
             {!loading && children}
         </AuthContext.Provider>
     );
