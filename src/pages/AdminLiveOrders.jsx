@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { useReactToPrint } from 'react-to-print';
-import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle } from 'lucide-react';
+import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Receipt = React.forwardRef(({ order }, ref) => {
@@ -21,6 +21,7 @@ const Receipt = React.forwardRef(({ order }, ref) => {
                 <div className="flex justify-between"><span>ID:</span><span>{order.orderId}</span></div>
                 <div className="flex justify-between"><span>Tgl:</span><span>{order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('id-ID') : '-'}</span></div>
                 <div className="flex justify-between"><span>Meja:</span><span>{order.tableNumber}</span></div>
+                <div className="flex justify-between"><span>Metode:</span><span>{order.paymentMethod}</span></div>
             </div>
             <div className="border-b-2 border-dashed border-black my-2"></div>
             <div className="flex flex-col gap-2 text-xs">
@@ -70,7 +71,7 @@ const AdminLiveOrders = () => {
     const confirmPayment = async (id) => {
         if (window.confirm("Konfirmasi pembayaran tunai diterima?")) {
             await updateDoc(doc(db, "orders", id), { paymentStatus: 'paid' });
-            toast.success("Pembayaran Dikonfirmasi LUNAS!");
+            toast.success("Pembayaran LUNAS!");
         }
     };
 
@@ -95,11 +96,10 @@ const AdminLiveOrders = () => {
         try {
             await updateDoc(doc(db, "orders", editingOrder.id), {
                 items: editingOrder.items,
-                subTotal: editingOrder.subTotal,
-                total: editingOrder.total
+                total: editingOrder.items.reduce((acc, item) => acc + (item.price * item.qty), 0)
             });
             setEditingOrder(null);
-            toast.success("Edit Berhasil");
+            toast.success("Order Diupdate");
         } catch (error) { toast.error("Gagal Edit"); }
     };
 
@@ -108,9 +108,7 @@ const AdminLiveOrders = () => {
         const newItems = [...editingOrder.items];
         newItems[index].qty += delta;
         if (newItems[index].qty < 1) newItems[index].qty = 1;
-        const newSubTotal = newItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const newTotal = newSubTotal + (editingOrder.adminFee || 0);
-        setEditingOrder({ ...editingOrder, items: newItems, subTotal: newSubTotal, total: newTotal });
+        setEditingOrder({ ...editingOrder, items: newItems });
     };
 
     const filteredOrders = orders.filter(o =>
@@ -135,36 +133,29 @@ const AdminLiveOrders = () => {
 
                     return (
                         <div key={order.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-4 relative transition hover:shadow-md ${isCashUnpaid ? 'border-red-500' : 'border-orange-500'}`}>
-                            {/* HEADER KARTU */}
                             <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <span className="font-bold text-lg">Meja {order.tableNumber}</span>
-                                    <p className="text-xs text-gray-500 truncate w-32">{order.customerName}</p>
+                                    <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                        <Clock size={10} /> {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    </div>
                                 </div>
                                 <div className="text-right">
                                     <span className="px-2 py-1 rounded text-[10px] font-bold uppercase block mb-1 bg-gray-100">{order.status}</span>
-
-                                    {/* INDIKATOR PEMBAYARAN */}
                                     {isPaid ? (
-                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700 flex items-center justify-end gap-1">
-                                            <CheckCircle size={10} /> LUNAS
-                                        </span>
+                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700 flex items-center justify-end gap-1"><CheckCircle size={10} /> LUNAS</span>
                                     ) : (
-                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-100 text-red-700 flex items-center justify-end gap-1 animate-pulse">
-                                            <AlertCircle size={10} /> BELUM BAYAR
-                                        </span>
+                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-100 text-red-700 flex items-center justify-end gap-1 animate-pulse"><AlertCircle size={10} /> BELUM BAYAR</span>
                                     )}
                                 </div>
                             </div>
 
                             <div className="flex justify-between items-center mb-3">
                                 <div className={`text-xs font-bold py-1 px-2 rounded inline-block ${order.diningOption === 'takeaway' ? 'bg-purple-100 text-purple-700' : 'bg-orange-50 text-orange-700'}`}>
-                                    {order.diningOption === 'takeaway' ? '🛍️ AMBIL' : '🍽️ DINE IN'}
+                                    {order.diningOption === 'takeaway' ? '🛍️ TAKEAWAY' : '🍽️ DINE IN'}
                                 </div>
-                                <p className="text-xs font-mono font-bold">{order.paymentMethod}</p>
+                                <p className="text-xs font-mono font-bold text-gray-600">{order.paymentMethod}</p>
                             </div>
-
-                            {order.note && <div className="bg-yellow-50 p-2 rounded border border-yellow-200 text-xs italic mb-2 text-gray-600">"{order.note}"</div>}
 
                             <div className="space-y-1 mb-4 text-sm border-t border-b py-2 border-dashed">
                                 {order.items.map((item, idx) => (
@@ -173,13 +164,9 @@ const AdminLiveOrders = () => {
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                {/* TOMBOL KONFIRMASI BAYAR KHUSUS CASH */}
                                 {isCashUnpaid && (
-                                    <button
-                                        onClick={() => confirmPayment(order.id)}
-                                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold text-sm flex items-center justify-center gap-2 mb-1"
-                                    >
-                                        <Banknote size={16} /> Terima Pembayaran (Rp {order.total.toLocaleString('id-ID')})
+                                    <button onClick={() => confirmPayment(order.id)} className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold text-sm flex items-center justify-center gap-2 mb-1">
+                                        <Banknote size={16} /> Terima Rp {order.total.toLocaleString('id-ID')}
                                     </button>
                                 )}
 
@@ -201,7 +188,7 @@ const AdminLiveOrders = () => {
             {editingOrder && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
-                        <div className="flex justify-between mb-4"><h3 className="font-bold">Edit Order</h3><button onClick={() => setEditingOrder(null)}><X /></button></div>
+                        <div className="flex justify-between mb-4"><h3 className="font-bold">Edit Pesanan</h3><button onClick={() => setEditingOrder(null)}><X /></button></div>
                         <div className="space-y-3 mb-4">
                             {editingOrder.items.map((item, idx) => (
                                 <div key={idx} className="flex justify-between items-center border p-2 rounded">
@@ -214,7 +201,7 @@ const AdminLiveOrders = () => {
                                 </div>
                             ))}
                         </div>
-                        <button onClick={saveEditedOrder} className="w-full bg-blue-600 text-white py-2 rounded-lg">Simpan</button>
+                        <button onClick={saveEditedOrder} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold">Simpan Perubahan</button>
                     </div>
                 </div>
             )}
