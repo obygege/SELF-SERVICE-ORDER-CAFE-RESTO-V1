@@ -1,14 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider } from '../firebase';
-import {
-    signInWithPopup,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged,
-    updatePassword,
-    updateProfile
-} from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, signInWithPopup, createUserWithEmailAndPassword, GoogleAuthProvider } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -19,38 +12,21 @@ export const AuthProvider = ({ children }) => {
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const loginGoogle = () => signInWithPopup(auth, googleProvider);
-
-    const loginEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
-
-    const registerEmail = async (email, password, name) => {
-        const res = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(res.user, { displayName: name });
-        return res;
-    }
-
-    const logout = () => {
-        setUserRole(null); // Reset role saat logout
-        return signOut(auth);
-    };
-
-    const changePassword = (newPassword) => updatePassword(currentUser, newPassword);
-
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                const email = user.email.toLowerCase(); // Paksa huruf kecil biar aman
-                let role = 'user'; // Default role
-
-                // LOGIKA PENENTUAN ROLE
-                if (email === 'admin@cafe.com') {
-                    role = 'admin';
-                } else if (email === 'head@cafe.com') {
-                    role = 'head';
+                try {
+                    const docRef = doc(db, "users", user.uid);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setUserRole(docSnap.data().role);
+                    } else {
+                        setUserRole('user');
+                    }
+                } catch (e) {
+                    console.error("Error fetching user role", e);
+                    setUserRole('user');
                 }
-
-                console.log(`Login sebagai: ${email} | Role: ${role}`); // Cek di Console
-                setUserRole(role);
                 setCurrentUser(user);
             } else {
                 setCurrentUser(null);
@@ -61,19 +37,22 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, []);
 
-    const value = {
-        currentUser,
-        userRole,
-        loading, // Export loading status
-        loginGoogle,
-        loginEmail,
-        registerEmail,
-        logout,
-        changePassword
+    const loginEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
+
+    const registerEmail = (email, password) => createUserWithEmailAndPassword(auth, email, password);
+
+    const loginGoogle = () => {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+            prompt: 'select_account'
+        });
+        return signInWithPopup(auth, provider);
     };
 
+    const logout = () => signOut(auth);
+
     return (
-        <AuthContext.Provider value={value}>
+        <AuthContext.Provider value={{ currentUser, userRole, loading, loginEmail, registerEmail, loginGoogle, logout }}>
             {!loading && children}
         </AuthContext.Provider>
     );
