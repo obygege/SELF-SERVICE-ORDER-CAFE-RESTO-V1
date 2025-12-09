@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
 import { Plus, Trash2, Printer, QrCode, Layers, Loader2 } from 'lucide-react';
-import QRCodeGen from 'qrcode'; // Library baru (npm install qrcode)
+import QRCodeGen from 'qrcode';
 import toast from 'react-hot-toast';
 
 const AdminTables = () => {
     const [tables, setTables] = useState([]);
     const [newTableNum, setNewTableNum] = useState('');
-    const [isPrinting, setIsPrinting] = useState(false); // Indikator Loading Print
+    const [isPrinting, setIsPrinting] = useState(false);
 
     useEffect(() => {
         const q = query(collection(db, "tables"), orderBy("createdAt", "asc"));
@@ -32,12 +32,12 @@ const AdminTables = () => {
         if (window.confirm("Hapus meja ini?")) await deleteDoc(doc(db, "tables", id));
     };
 
-    // --- FUNGSI PRINT SATUAN (QR Lokal Base64) ---
     const printSingleQR = async (table) => {
         setIsPrinting(true);
         try {
-            const url = `${window.location.origin}/?table=${table.tableNumber}`;
-            // Generate QR jadi Base64 Image (Instan, tidak butuh internet saat print)
+            // PERBAIKAN DISINI: Langsung arahkan ke /login agar parameter table tidak hilang saat redirect
+            const url = `${window.location.origin}/login?table=${table.tableNumber}`;
+
             const qrDataUrl = await QRCodeGen.toDataURL(url, { width: 300, margin: 2 });
 
             const html = `
@@ -65,29 +65,28 @@ const AdminTables = () => {
                 iframe.contentWindow.print();
                 document.body.removeChild(iframe);
                 setIsPrinting(false);
-            }, 300); // Delay dikit biar render browser aman
+            }, 300);
         } catch (err) {
             toast.error("Gagal Generate QR");
             setIsPrinting(false);
         }
     };
 
-    // --- FUNGSI PRINT SEMUA (A4 Grid - QR Lokal) ---
     const printAllQR = async () => {
         if (tables.length === 0) return toast.error("Belum ada meja!");
         setIsPrinting(true);
 
         try {
-            // Generate semua QR Code dulu dalam bentuk Base64
             const qrPromises = tables.map(async (table) => {
-                const url = `${window.location.origin}/?table=${table.tableNumber}`;
+                // PERBAIKAN DISINI JUGA: Langsung arahkan ke /login
+                const url = `${window.location.origin}/login?table=${table.tableNumber}`;
+
                 const qrDataUrl = await QRCodeGen.toDataURL(url, { width: 150, margin: 1 });
                 return { ...table, qrDataUrl };
             });
 
             const tablesWithQR = await Promise.all(qrPromises);
 
-            // Susun HTML Grid
             const itemsHtml = tablesWithQR.map(t => `
           <div style="border:2px dashed #000; padding:10px; text-align:center; page-break-inside: avoid;">
               <div style="font-weight:bold; font-size:12px; font-family:sans-serif; margin-bottom:5px;">SCAN UNTUK PESAN</div>
@@ -100,15 +99,15 @@ const AdminTables = () => {
         <html>
           <head>
             <style>
-             @page { size: A4; margin: 10mm; }
-             body { font-family: sans-serif; -webkit-print-color-adjust: exact; }
-             .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-             h1 { text-align: center; margin-bottom: 20px; text-transform: uppercase; }
+              @page { size: A4; margin: 10mm; }
+              body { font-family: sans-serif; -webkit-print-color-adjust: exact; }
+              .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+              h1 { text-align: center; margin-bottom: 20px; text-transform: uppercase; }
             </style>
           </head>
           <body>
-             <h1>QR Code Master - ${tables.length} Meja</h1>
-             <div class="grid">${itemsHtml}</div>
+              <h1>QR Code Master - ${tables.length} Meja</h1>
+              <div class="grid">${itemsHtml}</div>
           </body>
         </html>
       `;
