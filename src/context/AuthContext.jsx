@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db, googleProvider } from '../firebase';
+import { auth, db } from '../firebase';
 import {
     signInWithPopup,
     signInWithEmailAndPassword,
@@ -23,7 +23,9 @@ export const AuthProvider = ({ children }) => {
 
     const loginGoogle = () => {
         const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
+        provider.setCustomParameters({
+            prompt: 'select_account'
+        });
         return signInWithPopup(auth, provider);
     };
 
@@ -46,20 +48,17 @@ export const AuthProvider = ({ children }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
-                    // Ambil Role dari Firestore
                     const docRef = doc(db, "users", user.uid);
                     const docSnap = await getDoc(docRef);
 
                     if (docSnap.exists()) {
-                        const roleData = docSnap.data().role;
-                        setUserRole(roleData);
-                        console.log("User Role Loaded:", roleData);
+                        setUserRole(docSnap.data().role);
                     } else {
-                        setUserRole('user'); // Default
+                        setUserRole('user');
                     }
                     setCurrentUser(user);
                 } catch (error) {
-                    console.error("Auth Error:", error);
+                    console.error(error);
                     setCurrentUser(user);
                     setUserRole('user');
                 }

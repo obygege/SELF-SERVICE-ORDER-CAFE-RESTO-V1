@@ -27,10 +27,19 @@ const PrivateRoute = ({ children, allowedRoles }) => {
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
 
   if (!currentUser) {
+    if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/head')) {
+      return <Navigate to="/staff-login" replace />;
+    }
     return <Navigate to={`/login${location.search}`} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(userRole)) return <Navigate to="/" />;
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    if (userRole === 'user') return <Navigate to="/" />;
+    if (userRole === 'admin') return <Navigate to="/admin" />;
+    if (userRole === 'head') return <Navigate to="/head" />;
+    return <Navigate to="/" />;
+  }
+
   return children;
 };
 
@@ -63,7 +72,7 @@ function App() {
               <Route index element={<AdminReports />} />
             </Route>
 
-            <Route path="/profile" element={<PrivateRoute allowedRoles={['admin', 'head']}><AdminLayout /></PrivateRoute>}>
+            <Route path="/profile" element={<PrivateRoute allowedRoles={['admin', 'head', 'user']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<UserProfile />} />
             </Route>
 

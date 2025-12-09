@@ -12,7 +12,6 @@ const LoginUser = () => {
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
 
-    // State Validasi Lokasi
     const [storeConfig, setStoreConfig] = useState(null);
     const [isAllowed, setIsAllowed] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('loading');
@@ -23,7 +22,6 @@ const LoginUser = () => {
     const [searchParams] = useSearchParams();
     const tableParam = searchParams.get('table');
 
-    // 1. Ambil Config Lokasi
     useEffect(() => {
         const fetchConfig = async () => {
             try {
@@ -32,39 +30,31 @@ const LoginUser = () => {
                 if (docSnap.exists()) {
                     setStoreConfig(docSnap.data());
                 } else {
-                    // Jika admin belum set lokasi, izinkan login
                     setGpsStatus('allowed');
                     setIsAllowed(true);
                 }
             } catch (error) {
-                console.error(error);
-                // Fallback jika error, izinkan login
-                setIsAllowed(true);
                 setGpsStatus('allowed');
+                setIsAllowed(true);
             }
         };
         fetchConfig();
     }, []);
 
-    // Rumus Jarak
     const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
         const R = 6371;
-        const dLat = deg2rad(lat2 - lat1);
-        const dLon = deg2rad(lon2 - lon1);
+        const dLat = (lat2 - lat1) * (Math.PI / 180);
+        const dLon = (lon2 - lon1) * (Math.PI / 180);
         const a =
             Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     };
 
-    const deg2rad = (deg) => deg * (Math.PI / 180);
-
-    // 2. Cek GPS
     useEffect(() => {
         if (!storeConfig) return;
 
-        // Jika latitude 0 atau tidak ada, anggap mode bebas (boleh login)
         if (!storeConfig.latitude) {
             setIsAllowed(true);
             setGpsStatus('allowed');
@@ -95,7 +85,6 @@ const LoginUser = () => {
                 }
             },
             (error) => {
-                console.error("GPS Error:", error);
                 setGpsStatus('error');
             },
             { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
@@ -104,7 +93,6 @@ const LoginUser = () => {
         return () => navigator.geolocation.clearWatch(watchId);
     }, [storeConfig]);
 
-    // Handle Redirect setelah Login Sukses
     const handleSuccessRedirect = () => {
         if (tableParam) {
             navigate(`/?table=${tableParam}`);
@@ -113,7 +101,6 @@ const LoginUser = () => {
         }
     };
 
-    // --- HANDLE LOGIN EMAIL ---
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!isAllowed) return toast.error("Lokasi kejauhan! Mendekat ke Cafe.");
@@ -135,25 +122,19 @@ const LoginUser = () => {
             }
             handleSuccessRedirect();
         } catch (err) {
-            console.error(err);
-            toast.error(isRegister ? "Gagal Daftar (Email terpakai?)" : "Email/Password Salah");
+            toast.error(isRegister ? "Gagal Daftar" : "Email/Password Salah");
         }
     };
 
-    // --- HANDLE LOGIN GOOGLE ---
     const handleGoogle = async () => {
-        // Cek lokasi dulu secara sinkron (variabel state)
         if (!isAllowed) {
-            if (gpsStatus === 'loading') toast("Sedang mencari lokasi...");
-            else if (gpsStatus === 'error') toast.error("Aktifkan GPS Browser Anda!");
-            else toast.error("Lokasi Anda terlalu jauh dari Cafe.");
+            toast.error("Lokasi Anda terlalu jauh dari Cafe.");
             return;
         }
 
         try {
             const res = await loginGoogle();
 
-            // Simpan/Update data user di Firestore
             const userRef = doc(db, "users", res.user.uid);
             await setDoc(userRef, {
                 uid: res.user.uid,
@@ -165,14 +146,13 @@ const LoginUser = () => {
 
             handleSuccessRedirect();
         } catch (err) {
-            console.error("Google Login Error Full:", err);
-
+            console.error("Google Error:", err);
             if (err.code === 'auth/popup-closed-by-user') {
                 toast("Login dibatalkan");
             } else if (err.code === 'auth/unauthorized-domain') {
-                toast.error("Domain belum diizinkan di Firebase Console!");
+                toast.error("Domain belum diizinkan di Firebase!");
             } else {
-                toast.error("Gagal Login Google: " + err.message);
+                toast.error("Gagal Login Google");
             }
         }
     };
@@ -193,7 +173,6 @@ const LoginUser = () => {
                         Wajib berada di lokasi cafe untuk login.
                     </p>
 
-                    {/* STATUS BAR GPS */}
                     <div className="flex flex-col items-center justify-center gap-1 mb-4">
                         <span className={`text-[10px] px-3 py-1.5 rounded-full font-bold border flex items-center gap-1 transition-colors ${gpsStatus === 'allowed' ? 'bg-green-50 text-green-700 border-green-200' :
                                 gpsStatus === 'denied' ? 'bg-red-50 text-red-700 border-red-200' :
@@ -210,13 +189,9 @@ const LoginUser = () => {
                 </div>
 
                 <div className="px-8 pb-8">
-                    {/* GOOGLE BUTTON */}
                     <button
                         onClick={handleGoogle}
-                        // Matikan tombol jika lokasi belum valid (kecuali mode dev/loading)
-                        disabled={!isAllowed}
-                        className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 
-                        ${!isAllowed ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-gray-50 active:scale-95'}`}
+                        className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 hover:bg-gray-50 active:scale-95`}
                     >
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
                         {isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google'}

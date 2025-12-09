@@ -17,11 +17,9 @@ const LoginStaff = () => {
         setLoading(true);
 
         try {
-            // 1. Login ke Firebase Auth
             const res = await signInWithEmailAndPassword(auth, email, password);
             const user = res.user;
 
-            // 2. Cek Data di Database Firestore
             const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef);
 
@@ -29,39 +27,34 @@ const LoginStaff = () => {
 
             if (docSnap.exists()) {
                 role = docSnap.data().role;
-            } 
-            
-            // --- FITUR AUTO FIX ADMIN ---
-            // Jika email mengandung kata 'admin' (cth: admin@cafe.com) tapi di db bukan admin,
-            // Kita paksa ubah jadi admin biar bisa masuk.
-            if (email.toLowerCase().includes('admin')) {
-                if (role !== 'admin') {
-                    await setDoc(docRef, { 
+            } else {
+                if (email.toLowerCase().includes('admin')) role = 'admin';
+                else if (email.toLowerCase().includes('head') || email.toLowerCase().includes('kepala')) role = 'head';
+
+                if (role !== 'user') {
+                    await setDoc(docRef, {
                         email: email,
-                        role: 'admin',
-                        uid: user.uid 
+                        role: role,
+                        uid: user.uid,
+                        createdAt: new Date()
                     }, { merge: true });
-                    role = 'admin';
                 }
             }
-            // -----------------------------
 
-            // 3. Arahkan sesuai Role
             if (role === 'admin') {
-                toast.success("Selamat Datang, Admin!");
-                // Paksa reload window sekali biar AuthContext refresh role terbaru
-                window.location.href = "/admin"; 
+                toast.success("Login Admin Berhasil");
+                window.location.href = "/admin";
             } else if (role === 'head') {
-                toast.success("Selamat Datang, Kepala Toko!");
+                toast.success("Login Kepala Toko Berhasil");
                 window.location.href = "/head";
             } else {
-                toast.error("Akun ini bukan Staff/Admin!");
-                await auth.signOut(); // Tendang keluar
+                toast.error("Akun Anda terdaftar sebagai Pelanggan, bukan Staff.");
+                await auth.signOut();
             }
 
         } catch (error) {
             console.error(error);
-            toast.error("Login Gagal: Email/Password Salah");
+            toast.error("Login Gagal: Periksa Email/Password");
         } finally {
             setLoading(false);
         }
@@ -69,7 +62,6 @@ const LoginStaff = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 relative overflow-hidden">
-            {/* Background Decoration */}
             <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-orange-600 rounded-full blur-[100px] opacity-20"></div>
             <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
 
@@ -79,44 +71,44 @@ const LoginStaff = () => {
                         <ShieldCheck className="text-white" size={32} />
                     </div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">Portal Staff</h1>
-                    <p className="text-slate-400 text-sm mt-1">Khusus Admin & Kepala Toko</p>
+                    <p className="text-slate-400 text-sm mt-1">Admin & Kepala Toko</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div className="relative group">
                         <Mail className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                        <input 
-                            type="email" 
-                            placeholder="Email Staff" 
+                        <input
+                            type="email"
+                            placeholder="Email Staff"
                             className="w-full bg-slate-800/50 border border-slate-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-500"
-                            value={email} 
+                            value={email}
                             onChange={e => setEmail(e.target.value)}
                             required
                         />
                     </div>
                     <div className="relative group">
                         <Lock className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                        <input 
-                            type="password" 
-                            placeholder="Password" 
+                        <input
+                            type="password"
+                            placeholder="Password"
                             className="w-full bg-slate-800/50 border border-slate-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-500"
-                            value={password} 
+                            value={password}
                             onChange={e => setPassword(e.target.value)}
                             required
                         />
                     </div>
 
-                    <button 
+                    <button
                         disabled={loading}
                         className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
                     >
-                        {loading ? <Loader2 className="animate-spin" /> : "Masuk Dashboard"}
+                        {loading ? <Loader2 className="animate-spin" /> : "Masuk System"}
                     </button>
                 </form>
 
                 <div className="mt-8 pt-6 border-t border-white/10 text-center">
                     <Link to="/login" className="text-xs text-slate-400 hover:text-white transition font-medium">
-                        ← Kembali ke Login Pelanggan
+                        ← Login Pelanggan
                     </Link>
                 </div>
             </div>
