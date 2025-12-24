@@ -1,43 +1,69 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
-import { useReactToPrint } from 'react-to-print';
+import { useReactToPrint } from 'react-to-print'; // Pastikan ini terinstall
 import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle, Clock, Coffee } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// --- KOMPONEN STRUK (UI KHUSUS CETAK) ---
 const Receipt = React.forwardRef(({ order }, ref) => {
-    if (!order) return <div ref={ref}></div>;
+    if (!order) return null;
     const isPaid = order.paymentStatus === 'paid';
 
     return (
-        <div ref={ref} className="bg-white text-black font-mono p-4" style={{ width: '80mm', margin: '0' }}>
-            <style>{`@media print { @page { size: 80mm auto; margin: 0; } body { margin: 0; padding: 0; } }`}</style>
+        <div ref={ref} className="bg-white text-black font-mono p-4 mx-auto" style={{ width: '80mm', fontSize: '12px', color: 'black' }}>
+            {/* Style khusus saat diprint agar pas di kertas struk */}
+            <style type="text/css" media="print">
+                {`
+                   @page { size: 80mm auto; margin: 0; }
+                   body { margin: 0; padding: 0; }
+                   .no-print { display: none !important; }
+                `}
+            </style>
+
             <div className="text-center mb-4">
-                <h2 className="font-extrabold text-xl uppercase">CAFE FUTURA</h2>
-                <p className="text-xs">Jl. Teknologi No. 88</p>
+                <h2 className="font-extrabold text-xl uppercase leading-none mb-1">CAFE FUTURA</h2>
+                <p className="text-[10px]">Jl. Teknologi No. 88</p>
+                <p className="text-[10px]">0812-3456-7890</p>
             </div>
+
             <div className="border-b-2 border-dashed border-black my-2"></div>
-            <div className="text-xs space-y-1">
+
+            <div className="space-y-1 text-[10px]">
                 <div className="flex justify-between"><span>ID:</span><span>{order.orderId}</span></div>
                 <div className="flex justify-between"><span>Tgl:</span><span>{order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('id-ID') : '-'}</span></div>
                 <div className="flex justify-between"><span>Meja:</span><span>{order.tableNumber}</span></div>
-                <div className="flex justify-between"><span>Metode:</span><span>{order.paymentMethod}</span></div>
+                <div className="flex justify-between"><span>Tipe:</span><span className="uppercase">{order.diningOption}</span></div>
+                <div className="flex justify-between"><span>Bayar:</span><span>{order.paymentMethod}</span></div>
             </div>
+
             <div className="border-b-2 border-dashed border-black my-2"></div>
-            <div className="flex flex-col gap-2 text-xs">
+
+            <div className="flex flex-col gap-1 text-[10px]">
                 {order.items?.map((item, i) => (
-                    <div key={i} className="flex justify-between items-start">
-                        <div className="flex gap-1"><span className="font-bold">{item.qty}x</span><span>{item.name}</span></div>
-                        <span>{(item.price * item.qty).toLocaleString('id-ID')}</span>
+                    <div key={i} className="flex flex-col">
+                        <div className="font-bold">{item.name}</div>
+                        <div className="flex justify-between pl-2">
+                            <span>{item.qty} x {item.price.toLocaleString('id-ID')}</span>
+                            <span>{(item.price * item.qty).toLocaleString('id-ID')}</span>
+                        </div>
                     </div>
                 ))}
             </div>
+
             <div className="border-b-2 border-dashed border-black my-2"></div>
-            <div className="text-xs space-y-1 font-bold">
+
+            <div className="space-y-1 font-bold text-sm">
                 <div className="flex justify-between"><span>Total</span><span>Rp {order.total?.toLocaleString('id-ID')}</span></div>
             </div>
-            <div className="text-center mt-4 text-xs font-bold border-2 border-black p-1">
-                {isPaid ? '*** LUNAS ***' : 'BELUM LUNAS / TAGIHAN'}
+
+            <div className="text-center mt-6 text-sm font-bold border-2 border-black p-2 rounded">
+                {isPaid ? 'LUNAS' : 'BELUM BAYAR'}
+            </div>
+
+            <div className="text-center mt-4 text-[10px]">
+                <p>Terima Kasih!</p>
+                <p>Wifi: FuturaGuest / Pass: 123456</p>
             </div>
         </div>
     );
@@ -46,18 +72,24 @@ const Receipt = React.forwardRef(({ order }, ref) => {
 const AdminLiveOrders = () => {
     const [orders, setOrders] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [printOrder, setPrintOrder] = useState(null);
+
+    // State untuk Modal Preview & Edit
+    const [previewOrder, setPreviewOrder] = useState(null);
     const [editingOrder, setEditingOrder] = useState(null);
+
+    // Ref untuk ReactToPrint
     const componentRef = useRef();
 
+    // Fungsi Print dari Library
     const handlePrint = useReactToPrint({
         content: () => componentRef.current,
-        onAfterPrint: () => setPrintOrder(null)
+        documentTitle: `Struk-${previewOrder?.orderId || 'Order'}`,
+        onAfterPrint: () => {
+            // Opsional: Tutup modal setelah print, atau biarkan terbuka
+            // setPreviewOrder(null); 
+            toast.success("Print selesai");
+        }
     });
-
-    useEffect(() => {
-        if (printOrder) handlePrint();
-    }, [printOrder, handlePrint]);
 
     useEffect(() => {
         const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
@@ -77,14 +109,9 @@ const AdminLiveOrders = () => {
 
     const changeStatus = async (id, currentStatus) => {
         let nextStatus = '';
-
         if (currentStatus === 'pending') nextStatus = 'cooking';
         else if (currentStatus === 'cooking') nextStatus = 'ready';
-        else if (currentStatus === 'ready') {
-            nextStatus = 'completed';
-            // PERBAIKAN: TIDAK ADA LOGIKA UPDATE PAYMENT OTOMATIS DISINI
-            // Status bayar akan tetap sesuai aslinya (unpaid/paid)
-        }
+        else if (currentStatus === 'ready') nextStatus = 'completed';
 
         if (nextStatus) {
             await updateDoc(doc(db, "orders", id), { status: nextStatus });
@@ -118,6 +145,7 @@ const AdminLiveOrders = () => {
 
     return (
         <div>
+            {/* --- HEADER --- */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BellRing className="text-orange-600" /> Pesanan Masuk</h1>
                 <div className="relative w-full md:w-auto">
@@ -126,6 +154,7 @@ const AdminLiveOrders = () => {
                 </div>
             </div>
 
+            {/* --- LIST PESANAN --- */}
             {filteredOrders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[60vh] bg-white rounded-3xl border-4 border-dashed border-gray-100 p-8 text-center animate-in fade-in zoom-in duration-500">
                     <div className="bg-orange-50 p-8 rounded-full mb-6 relative">
@@ -134,11 +163,6 @@ const AdminLiveOrders = () => {
                     </div>
                     <h3 className="text-2xl font-bold text-gray-700 mb-2">Belum Ada Pesanan Masuk</h3>
                     <p className="text-gray-400 max-w-sm">Pesanan baru dari pelanggan akan muncul di sini secara real-time. Standby ya!</p>
-                    <div className="mt-8 flex gap-2">
-                        <span className="h-2 w-2 bg-orange-400 rounded-full animate-bounce"></span>
-                        <span className="h-2 w-2 bg-orange-400 rounded-full animate-bounce delay-100"></span>
-                        <span className="h-2 w-2 bg-orange-400 rounded-full animate-bounce delay-200"></span>
-                    </div>
                 </div>
             ) : (
                 <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -192,7 +216,11 @@ const AdminLiveOrders = () => {
                                             {order.status === 'ready' && <><CheckCircle size={16} /> Selesai</>}
                                         </button>
                                         <button onClick={() => setEditingOrder(order)} className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 border border-blue-200"><Edit2 size={18} /></button>
-                                        <button onClick={() => setPrintOrder(order)} className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300"><Printer size={18} /></button>
+
+                                        {/* TOMBOL PRINT MEMBUKA MODAL */}
+                                        <button onClick={() => setPreviewOrder(order)} className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300" title="Cetak Struk">
+                                            <Printer size={18} />
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -201,6 +229,7 @@ const AdminLiveOrders = () => {
                 </div>
             )}
 
+            {/* --- MODAL EDIT PESANAN --- */}
             {editingOrder && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
@@ -221,7 +250,38 @@ const AdminLiveOrders = () => {
                     </div>
                 </div>
             )}
-            <div style={{ position: "fixed", top: 0, left: 0, opacity: 0, pointerEvents: "none", zIndex: -50 }}><Receipt ref={componentRef} order={printOrder} /></div>
+
+            {/* --- MODAL PREVIEW & PRINT (SOLUSI FINAL) --- */}
+            {/* Modal ini menampilkan struk di tengah layar agar bisa dicek sebelum diprint */}
+            {previewOrder && (
+                <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 flex flex-col items-center gap-4 max-w-sm w-full">
+                        <h3 className="font-bold text-gray-700 text-lg flex items-center gap-2">
+                            <Printer size={20} /> Preview Struk
+                        </h3>
+
+                        {/* KONTAINER STRUK (Ada Border agar kelihatan batas kertasnya) */}
+                        <div className="border-2 border-gray-200 bg-gray-50 p-2 rounded w-full flex justify-center overflow-auto max-h-[60vh]">
+                            <Receipt ref={componentRef} order={previewOrder} />
+                        </div>
+
+                        <div className="flex w-full gap-2 mt-2">
+                            <button
+                                onClick={() => setPreviewOrder(null)}
+                                className="flex-1 py-3 px-4 rounded-xl border border-gray-300 font-bold text-gray-600 hover:bg-gray-100 transition"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handlePrint}
+                                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                            >
+                                <Printer size={20} /> Cetak
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
