@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import {
     TrendingUp,
     ShoppingBag,
@@ -9,15 +11,103 @@ import {
     Activity,
     DollarSign,
     ClipboardList,
-    Coffee
+    Coffee,
+    Loader2
 } from 'lucide-react';
 
 const AdminHome = () => {
     const { currentUser } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        dailyRevenue: 0,
+        dailyOrders: 0,
+        topItem: '-',
+        activeTables: 0
+    });
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const ordersRef = collection(db, "orders");
+
+                const todayQuery = query(
+                    ordersRef,
+                    where("createdAt", ">=", today),
+                    orderBy("createdAt", "desc")
+                );
+
+                const activeQuery = query(
+                    ordersRef,
+                    where("status", "in", ["pending", "cooking", "ready"])
+                );
+
+                const [todaySnap, activeSnap] = await Promise.all([
+                    getDocs(todayQuery),
+                    getDocs(activeQuery)
+                ]);
+
+                let revenue = 0;
+                let orderCount = 0;
+                let itemFrequency = {};
+
+                todaySnap.forEach(doc => {
+                    const data = doc.data();
+
+                    if (data.status !== 'cancelled') {
+                        orderCount++;
+                        if (data.paymentStatus === 'paid' || data.status === 'completed') {
+                            revenue += (data.total || 0);
+                        }
+                    }
+
+                    if (data.status !== 'cancelled' && data.items) {
+                        data.items.forEach(item => {
+                            const itemName = item.name;
+                            itemFrequency[itemName] = (itemFrequency[itemName] || 0) + item.qty;
+                        });
+                    }
+                });
+
+                let bestSellingItem = "Belum ada data";
+                let maxQty = 0;
+
+                Object.entries(itemFrequency).forEach(([name, qty]) => {
+                    if (qty > maxQty) {
+                        maxQty = qty;
+                        bestSellingItem = name;
+                    }
+                });
+
+                setStats({
+                    dailyRevenue: revenue,
+                    dailyOrders: orderCount,
+                    topItem: maxQty > 0 ? bestSellingItem : "Belum ada",
+                    activeTables: activeSnap.size
+                });
+
+            } catch (error) {
+                console.error("Error fetching dashboard data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="animate-spin text-orange-600" size={40} />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            {/* HERO SECTION */}
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 to-slate-800 p-8 text-white shadow-2xl">
                 <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-orange-500 opacity-20 blur-3xl"></div>
                 <div className="absolute bottom-0 left-0 -ml-16 -mb-16 h-64 w-64 rounded-full bg-blue-500 opacity-20 blur-3xl"></div>
@@ -47,17 +137,16 @@ const AdminHome = () => {
                 </div>
             </div>
 
-            {/* STATS GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition group">
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-3 bg-green-50 rounded-xl group-hover:bg-green-100 transition">
                             <DollarSign className="text-green-600" size={24} />
                         </div>
-                        <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">+12.5%</span>
+                        <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">Hari Ini</span>
                     </div>
-                    <p className="text-gray-500 text-sm font-medium">Total Omzet Hari Ini</p>
-                    <h3 className="text-2xl font-black text-gray-800 mt-1">Rp 2.540.000</h3>
+                    <p className="text-gray-500 text-sm font-medium">Omzet Hari Ini</p>
+                    <h3 className="text-2xl font-black text-gray-800 mt-1">Rp {stats.dailyRevenue.toLocaleString('id-ID')}</h3>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition group">
@@ -65,10 +154,10 @@ const AdminHome = () => {
                         <div className="p-3 bg-blue-50 rounded-xl group-hover:bg-blue-100 transition">
                             <ShoppingBag className="text-blue-600" size={24} />
                         </div>
-                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">+5 Order</span>
+                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">Hari Ini</span>
                     </div>
                     <p className="text-gray-500 text-sm font-medium">Pesanan Masuk</p>
-                    <h3 className="text-2xl font-black text-gray-800 mt-1">48 Pesanan</h3>
+                    <h3 className="text-2xl font-black text-gray-800 mt-1">{stats.dailyOrders} Pesanan</h3>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition group">
@@ -78,8 +167,8 @@ const AdminHome = () => {
                         </div>
                         <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">Top Item</span>
                     </div>
-                    <p className="text-gray-500 text-sm font-medium">Menu Terlaris</p>
-                    <h3 className="text-2xl font-black text-gray-800 mt-1">Kopi Susu</h3>
+                    <p className="text-gray-500 text-sm font-medium">Menu Terlaris (Hari Ini)</p>
+                    <h3 className="text-xl font-black text-gray-800 mt-1 truncate" title={stats.topItem}>{stats.topItem}</h3>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition group">
@@ -87,16 +176,14 @@ const AdminHome = () => {
                         <div className="p-3 bg-purple-50 rounded-xl group-hover:bg-purple-100 transition">
                             <Users className="text-purple-600" size={24} />
                         </div>
-                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">Active</span>
+                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">Live</span>
                     </div>
-                    <p className="text-gray-500 text-sm font-medium">Pelanggan Aktif</p>
-                    <h3 className="text-2xl font-black text-gray-800 mt-1">12 Meja</h3>
+                    <p className="text-gray-500 text-sm font-medium">Pesanan Aktif</p>
+                    <h3 className="text-2xl font-black text-gray-800 mt-1">{stats.activeTables} Meja</h3>
                 </div>
             </div>
 
-            {/* QUICK ACTIONS & RECENT */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* LEFT: Quick Menu */}
                 <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
                     <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                         <ClipboardList className="text-slate-800" /> Akses Cepat
@@ -164,7 +251,6 @@ const AdminHome = () => {
                     </div>
                 </div>
 
-                {/* RIGHT: Mini Info */}
                 <div className="bg-gradient-to-b from-orange-500 to-red-500 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white opacity-20 blur-2xl"></div>
                     <div className="relative z-10 h-full flex flex-col justify-between">
@@ -189,7 +275,7 @@ const AdminHome = () => {
                         </div>
 
                         <div className="mt-8 pt-6 border-t border-white/20 text-center text-xs text-orange-100">
-                            Versi Aplikasi v2.4.0
+                            Versi Aplikasi v1.0
                         </div>
                     </div>
                 </div>

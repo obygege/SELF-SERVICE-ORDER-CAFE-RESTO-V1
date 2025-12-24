@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from 'react'; import { db } from '../firebase'; import { collection, query, orderBy, onSnapshot, deleteDoc, updateDoc, doc } from 'firebase/firestore'; import { History, Search, Trash2, Calendar, User, CheckCircle, XCircle, CreditCard, Banknote, X, Receipt, ChefHat } from 'lucide-react'; import toast from 'react-hot-toast';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { collection, query, orderBy, onSnapshot, deleteDoc, updateDoc, doc } from 'firebase/firestore';
+import { History, Search, Trash2, Calendar, User, CheckCircle, XCircle, CreditCard, Banknote, X, Receipt, ChefHat } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const AdminHistory = () => {
-    const [orders, setOrders] = useState([]); const [searchTerm, setSearchTerm] = useState(''); const [selectedOrder, setSelectedOrder] = useState(null);
+    const [orders, setOrders] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedOrder, setSelectedOrder] = useState(null);
 
     useEffect(() => {
         const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));

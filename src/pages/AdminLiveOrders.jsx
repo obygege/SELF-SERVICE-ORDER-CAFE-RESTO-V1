@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { useReactToPrint } from 'react-to-print';
-import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle, Clock, Coffee, ClipboardList } from 'lucide-react';
+import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle, Clock, Coffee } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Receipt = React.forwardRef(({ order }, ref) => {
@@ -77,17 +77,17 @@ const AdminLiveOrders = () => {
 
     const changeStatus = async (id, currentStatus) => {
         let nextStatus = '';
-        let extraUpdates = {};
 
         if (currentStatus === 'pending') nextStatus = 'cooking';
         else if (currentStatus === 'cooking') nextStatus = 'ready';
         else if (currentStatus === 'ready') {
             nextStatus = 'completed';
-            extraUpdates = { paymentStatus: 'paid' };
+            // PERBAIKAN: TIDAK ADA LOGIKA UPDATE PAYMENT OTOMATIS DISINI
+            // Status bayar akan tetap sesuai aslinya (unpaid/paid)
         }
 
         if (nextStatus) {
-            await updateDoc(doc(db, "orders", id), { status: nextStatus, ...extraUpdates });
+            await updateDoc(doc(db, "orders", id), { status: nextStatus });
             toast.success(`Status: ${nextStatus.toUpperCase()}`);
         }
     };
