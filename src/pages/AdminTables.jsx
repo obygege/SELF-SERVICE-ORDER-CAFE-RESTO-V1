@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
-import { Plus, Trash2, Printer, QrCode, Layers, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Printer, QrCode, Layers, Loader2, Download } from 'lucide-react';
 import QRCodeGen from 'qrcode';
 import toast from 'react-hot-toast';
 
@@ -32,27 +32,78 @@ const AdminTables = () => {
         if (window.confirm("Hapus meja ini?")) await deleteDoc(doc(db, "tables", id));
     };
 
+    const downloadSingleQR = async (table) => {
+        try {
+            const url = `${window.location.origin}/login?table=${table.tableNumber}`;
+            const qrDataUrl = await QRCodeGen.toDataURL(url, { width: 1000, margin: 1 });
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 1200;
+            canvas.height = 1600;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 40;
+            ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+
+            ctx.font = 'bold 80px Arial';
+            ctx.fillText('SCAN UNTUK PESAN', canvas.width / 2, 200);
+
+            const img = new Image();
+            img.src = qrDataUrl;
+
+            img.onload = () => {
+                const qrSize = 900;
+                const qrX = (canvas.width - qrSize) / 2;
+                const qrY = 300;
+                ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+
+                ctx.font = 'bold 250px Arial';
+                ctx.fillText(table.tableNumber, canvas.width / 2, 1400);
+
+                ctx.font = '60px Arial';
+                ctx.fillText('Cafe Futura', canvas.width / 2, 1520);
+
+                const link = document.createElement('a');
+                link.download = `QR_Meja_${table.tableNumber}.png`;
+                link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                toast.success(`Gambar QR Meja ${table.tableNumber} Disimpan`);
+            };
+
+        } catch (error) {
+            console.error(error);
+            toast.error("Gagal Download Gambar");
+        }
+    };
+
     const printSingleQR = async (table) => {
         setIsPrinting(true);
         try {
-            // PERBAIKAN DISINI: Langsung arahkan ke /login agar parameter table tidak hilang saat redirect
             const url = `${window.location.origin}/login?table=${table.tableNumber}`;
-
             const qrDataUrl = await QRCodeGen.toDataURL(url, { width: 300, margin: 2 });
 
             const html = `
-        <html>
-          <body style="display:flex; justify-content:center; align-items:center; height:100vh; margin:0; padding:0;">
-            <div style="border:4px solid black; padding:20px; text-align:center; width:300px; box-sizing:border-box;">
-              <h2 style="font-family:sans-serif; margin:0 0 10px 0; font-size: 24px;">SCAN ORDER</h2>
-              <img src="${qrDataUrl}" style="width:200px; height:200px; display:block; margin: 0 auto;" />
-              <h1 style="font-family:sans-serif; font-size:40px; margin:10px 0 0 0; font-weight:900;">${table.tableNumber}</h1>
-              <p style="font-family:sans-serif; margin-top:5px; font-size:15px">Pesan Dengan cara scan QR ini</p>
-              <p style="font-family:sans-serif; margin-top:5px;">Cafe Futura</p>
-            </div>
-          </body>
-        </html>
-      `;
+                <html>
+                  <body style="display:flex; justify-content:center; align-items:center; height:100vh; margin:0; padding:0;">
+                    <div style="border:4px solid black; padding:20px; text-align:center; width:300px; box-sizing:border-box;">
+                      <h2 style="font-family:sans-serif; margin:0 0 10px 0; font-size: 24px;">SCAN ORDER</h2>
+                      <img src="${qrDataUrl}" style="width:200px; height:200px; display:block; margin: 0 auto;" />
+                      <h1 style="font-family:sans-serif; font-size:40px; margin:10px 0 0 0; font-weight:900;">${table.tableNumber}</h1>
+                      <p style="font-family:sans-serif; margin-top:5px; font-size:15px">Pesan Dengan cara scan QR ini</p>
+                      <p style="font-family:sans-serif; margin-top:5px;">Cafe Futura</p>
+                    </div>
+                  </body>
+                </html>
+            `;
 
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
@@ -78,39 +129,39 @@ const AdminTables = () => {
 
         try {
             const qrPromises = tables.map(async (table) => {
-                // PERBAIKAN DISINI JUGA: Langsung arahkan ke /login
                 const url = `${window.location.origin}/login?table=${table.tableNumber}`;
-
-                const qrDataUrl = await QRCodeGen.toDataURL(url, { width: 150, margin: 1 });
+                const qrDataUrl = await QRCodeGen.toDataURL(url, { width: 300, margin: 2 });
                 return { ...table, qrDataUrl };
             });
 
             const tablesWithQR = await Promise.all(qrPromises);
 
             const itemsHtml = tablesWithQR.map(t => `
-          <div style="border:2px dashed #000; padding:10px; text-align:center; page-break-inside: avoid;">
-              <div style="font-weight:bold; font-size:12px; font-family:sans-serif; margin-bottom:5px;">SCAN UNTUK PESAN</div>
-              <img src="${t.qrDataUrl}" style="width:100px; height:100px;" />
-              <div style="font-weight:900; font-size:24px; font-family:sans-serif; text-transform:uppercase; margin-top:5px;"> ${t.tableNumber}</div>
-          </div>
-      `).join('');
+                <div style="border:4px solid black; padding:20px; text-align:center; width:300px; box-sizing:border-box; margin: 10px; page-break-inside: avoid;">
+                    <h2 style="font-family:sans-serif; margin:0 0 10px 0; font-size: 24px;">SCAN ORDER</h2>
+                    <img src="${t.qrDataUrl}" style="width:200px; height:200px; display:block; margin: 0 auto;" />
+                    <h1 style="font-family:sans-serif; font-size:40px; margin:10px 0 0 0; font-weight:900;">${t.tableNumber}</h1>
+                    <p style="font-family:sans-serif; margin-top:5px; font-size:15px">Pesan Dengan cara scan QR ini</p>
+                    <p style="font-family:sans-serif; margin-top:5px;">Cafe Futura</p>
+                </div>
+            `).join('');
 
             const html = `
-        <html>
-          <head>
-            <style>
-              @page { size: A4; margin: 10mm; }
-              body { font-family: sans-serif; -webkit-print-color-adjust: exact; }
-              .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-              h1 { text-align: center; margin-bottom: 20px; text-transform: uppercase; }
-            </style>
-          </head>
-          <body>
-              <h1>QR Code Master - ${tables.length} Meja</h1>
-              <div class="grid">${itemsHtml}</div>
-          </body>
-        </html>
-      `;
+                <html>
+                  <head>
+                    <style>
+                      @page { size: A4; margin: 10mm; }
+                      body { font-family: sans-serif; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
+                      .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 20px; }
+                      h1 { text-align: center; width: 100%; margin-bottom: 20px; text-transform: uppercase; }
+                    </style>
+                  </head>
+                  <body>
+                      <h1>QR Code Master - ${tables.length} Meja</h1>
+                      <div class="container">${itemsHtml}</div>
+                  </body>
+                </html>
+            `;
 
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
@@ -169,7 +220,14 @@ const AdminTables = () => {
                                 disabled={isPrinting}
                                 className="flex-1 bg-slate-800 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-700 disabled:bg-gray-400"
                             >
-                                <Printer size={14} /> {isPrinting ? '...' : 'QR'}
+                                <Printer size={14} /> Print
+                            </button>
+                            <button
+                                onClick={() => downloadSingleQR(table)}
+                                className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 flex items-center justify-center transition"
+                                title="Download Gambar PNG"
+                            >
+                                <Download size={14} />
                             </button>
                             <button onClick={() => handleDelete(table.id)} className="px-3 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14} /></button>
                         </div>

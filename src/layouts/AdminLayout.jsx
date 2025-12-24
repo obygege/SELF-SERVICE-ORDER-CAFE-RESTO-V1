@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ShieldCheck, ClipboardList, History, QrCode, Settings } from 'lucide-react';
+import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ClipboardList, History, QrCode, Settings } from 'lucide-react';
 
 const AdminLayout = () => {
     const { userRole, logout } = useAuth();
@@ -32,11 +32,26 @@ const AdminLayout = () => {
             {/* --- DESKTOP SIDEBAR --- */}
             <aside className="w-64 bg-slate-900 text-white hidden md:flex flex-col shadow-xl z-20">
                 <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-                    <div className="bg-orange-600 p-2 rounded-lg">
-                        <ShieldCheck size={24} className="text-white" />
-                    </div>
+                    <img
+                        src="/assets/logo.png"
+                        alt="Logo"
+                        className="w-10 h-10 object-contain"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none'; // Sembunyikan jika error/tidak ada, atau ganti src ke placeholder
+                        }}
+                    />
+                    {/* Fallback jika gambar gagal load atau belum ada, bisa pakai div kosong atau icon sementara */}
+                    <img
+                        src="/assets/logo.png" // Contoh logo placeholder transparan (Coffee Cup)
+                        alt="Fallback Logo"
+                        className="w-8 h-8 object-contain"
+                        style={{ display: 'none' }} // Hidden default, show via script logic if needed or just use consistent path
+                        onLoad={(e) => e.target.previousSibling.style.display === 'none' ? e.target.style.display = 'block' : null}
+                    />
+
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight">POS SYSTEM</h1>
+                        <h1 className="text-xl font-bold tracking-tight">FUTURA LINK</h1>
                         <p className="text-[10px] text-slate-400 uppercase tracking-widest">{userRole === 'head' ? 'KEPALA TOKO' : 'ADMIN'}</p>
                     </div>
                 </div>
@@ -91,10 +106,18 @@ const AdminLayout = () => {
             {/* --- MAIN CONTENT --- */}
             <main className="flex-1 overflow-y-auto bg-gray-50 relative pb-24 md:pb-0">
                 <header className="bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b px-4 md:px-8 py-4 flex justify-between items-center">
-                    <h2 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                        <ShieldCheck className="md:hidden text-orange-600" size={24} />
-                        {userRole === 'admin' ? 'Control Panel' : 'Laporan Toko'}
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        {/* Mobile Logo */}
+                        <img
+                            src="/assets/logo.png"
+                            alt="Logo"
+                            className="md:hidden w-8 h-8 object-contain"
+                            onError={(e) => e.target.style.display = 'none'}
+                        />
+                        <h2 className="font-bold text-gray-800 text-lg">
+                            {userRole === 'admin' ? 'Control Panel' : 'Laporan Toko'}
+                        </h2>
+                    </div>
 
                     {/* Logout Button Mobile (Top Right) */}
                     <button onClick={handleLogout} className="md:hidden p-2 text-red-500 bg-red-50 rounded-full">

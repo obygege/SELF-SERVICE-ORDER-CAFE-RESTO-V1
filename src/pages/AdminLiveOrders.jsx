@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { useReactToPrint } from 'react-to-print';
-import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle, Clock } from 'lucide-react';
+import { CheckCircle, ChefHat, BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, AlertCircle, Clock, Coffee, ClipboardList } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Receipt = React.forwardRef(({ order }, ref) => {
@@ -126,64 +126,80 @@ const AdminLiveOrders = () => {
                 </div>
             </div>
 
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {filteredOrders.map(order => {
-                    const isCashUnpaid = order.paymentMethod === 'Cash' && order.paymentStatus !== 'paid';
-                    const isPaid = order.paymentStatus === 'paid';
+            {filteredOrders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[60vh] bg-white rounded-3xl border-4 border-dashed border-gray-100 p-8 text-center animate-in fade-in zoom-in duration-500">
+                    <div className="bg-orange-50 p-8 rounded-full mb-6 relative">
+                        <Coffee size={64} className="text-orange-400" />
+                        <div className="absolute top-0 right-0 bg-red-500 w-4 h-4 rounded-full animate-ping"></div>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-700 mb-2">Belum Ada Pesanan Masuk</h3>
+                    <p className="text-gray-400 max-w-sm">Pesanan baru dari pelanggan akan muncul di sini secara real-time. Standby ya!</p>
+                    <div className="mt-8 flex gap-2">
+                        <span className="h-2 w-2 bg-orange-400 rounded-full animate-bounce"></span>
+                        <span className="h-2 w-2 bg-orange-400 rounded-full animate-bounce delay-100"></span>
+                        <span className="h-2 w-2 bg-orange-400 rounded-full animate-bounce delay-200"></span>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredOrders.map(order => {
+                        const isCashUnpaid = order.paymentMethod === 'Cash' && order.paymentStatus !== 'paid';
+                        const isPaid = order.paymentStatus === 'paid';
 
-                    return (
-                        <div key={order.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-4 relative transition hover:shadow-md ${isCashUnpaid ? 'border-red-500' : 'border-orange-500'}`}>
-                            <div className="flex justify-between items-start mb-2">
-                                <div>
-                                    <span className="font-bold text-lg">Meja {order.tableNumber}</span>
-                                    <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                        <Clock size={10} /> {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        return (
+                            <div key={order.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-4 relative transition hover:shadow-md ${isCashUnpaid ? 'border-red-500' : 'border-orange-500'}`}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <span className="font-bold text-lg">Meja {order.tableNumber}</span>
+                                        <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                            <Clock size={10} /> {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase block mb-1 bg-gray-100">{order.status}</span>
+                                        {isPaid ? (
+                                            <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700 flex items-center justify-end gap-1"><CheckCircle size={10} /> LUNAS</span>
+                                        ) : (
+                                            <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-100 text-red-700 flex items-center justify-end gap-1 animate-pulse"><AlertCircle size={10} /> BELUM BAYAR</span>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <span className="px-2 py-1 rounded text-[10px] font-bold uppercase block mb-1 bg-gray-100">{order.status}</span>
-                                    {isPaid ? (
-                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700 flex items-center justify-end gap-1"><CheckCircle size={10} /> LUNAS</span>
-                                    ) : (
-                                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-100 text-red-700 flex items-center justify-end gap-1 animate-pulse"><AlertCircle size={10} /> BELUM BAYAR</span>
+
+                                <div className="flex justify-between items-center mb-3">
+                                    <div className={`text-xs font-bold py-1 px-2 rounded inline-block ${order.diningOption === 'takeaway' ? 'bg-purple-100 text-purple-700' : 'bg-orange-50 text-orange-700'}`}>
+                                        {order.diningOption === 'takeaway' ? '🛍️ TAKEAWAY' : '🍽️ DINE IN'}
+                                    </div>
+                                    <p className="text-xs font-mono font-bold text-gray-600">{order.paymentMethod}</p>
+                                </div>
+
+                                <div className="space-y-1 mb-4 text-sm border-t border-b py-2 border-dashed">
+                                    {order.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between"><span><b>{item.qty}x</b> {item.name}</span></div>
+                                    ))}
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    {isCashUnpaid && (
+                                        <button onClick={() => confirmPayment(order.id)} className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold text-sm flex items-center justify-center gap-2 mb-1">
+                                            <Banknote size={16} /> Terima Rp {order.total.toLocaleString('id-ID')}
+                                        </button>
                                     )}
+
+                                    <div className="flex gap-2">
+                                        <button onClick={() => changeStatus(order.id, order.status)} className="flex-1 bg-slate-800 text-white py-2 rounded text-sm font-bold hover:bg-slate-700 flex justify-center items-center gap-2">
+                                            {order.status === 'pending' && <><ChefHat size={16} /> Masak</>}
+                                            {order.status === 'cooking' && <><BellRing size={16} /> Siap</>}
+                                            {order.status === 'ready' && <><CheckCircle size={16} /> Selesai</>}
+                                        </button>
+                                        <button onClick={() => setEditingOrder(order)} className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 border border-blue-200"><Edit2 size={18} /></button>
+                                        <button onClick={() => setPrintOrder(order)} className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300"><Printer size={18} /></button>
+                                    </div>
                                 </div>
                             </div>
-
-                            <div className="flex justify-between items-center mb-3">
-                                <div className={`text-xs font-bold py-1 px-2 rounded inline-block ${order.diningOption === 'takeaway' ? 'bg-purple-100 text-purple-700' : 'bg-orange-50 text-orange-700'}`}>
-                                    {order.diningOption === 'takeaway' ? '🛍️ TAKEAWAY' : '🍽️ DINE IN'}
-                                </div>
-                                <p className="text-xs font-mono font-bold text-gray-600">{order.paymentMethod}</p>
-                            </div>
-
-                            <div className="space-y-1 mb-4 text-sm border-t border-b py-2 border-dashed">
-                                {order.items.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between"><span><b>{item.qty}x</b> {item.name}</span></div>
-                                ))}
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                {isCashUnpaid && (
-                                    <button onClick={() => confirmPayment(order.id)} className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold text-sm flex items-center justify-center gap-2 mb-1">
-                                        <Banknote size={16} /> Terima Rp {order.total.toLocaleString('id-ID')}
-                                    </button>
-                                )}
-
-                                <div className="flex gap-2">
-                                    <button onClick={() => changeStatus(order.id, order.status)} className="flex-1 bg-slate-800 text-white py-2 rounded text-sm font-bold hover:bg-slate-700 flex justify-center items-center gap-2">
-                                        {order.status === 'pending' && <><ChefHat size={16} /> Masak</>}
-                                        {order.status === 'cooking' && <><BellRing size={16} /> Siap</>}
-                                        {order.status === 'ready' && <><CheckCircle size={16} /> Selesai</>}
-                                    </button>
-                                    <button onClick={() => setEditingOrder(order)} className="px-3 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 border border-blue-200"><Edit2 size={18} /></button>
-                                    <button onClick={() => setPrintOrder(order)} className="px-3 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300"><Printer size={18} /></button>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             {editingOrder && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
