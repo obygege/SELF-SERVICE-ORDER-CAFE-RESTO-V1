@@ -1,7 +1,9 @@
+// Gunakan require, jangan import
 const midtransClient = require('midtrans-client');
 
-export default async function handler(req, res) {
-    // Handle CORS (Agar bisa diakses dari frontend)
+// Gunakan module.exports, JANGAN export default
+module.exports = async (req, res) => {
+    // 1. Handle CORS (Wajib agar frontend bisa akses)
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -10,11 +12,13 @@ export default async function handler(req, res) {
         'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
     );
 
+    // 2. Handle Preflight Request (Browser cek ombak)
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
 
+    // 3. Hanya terima POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
@@ -22,10 +26,10 @@ export default async function handler(req, res) {
     try {
         const { orderId, total, items, customer } = req.body;
 
-        // Inisialisasi Midtrans (GANTI DENGAN SERVER KEY KAMU)
-        // Sebaiknya taruh di .env: process.env.MIDTRANS_SERVER_KEY
+        // Pastikan Server Key Sandbox benar
+        // GANTI 'SB-Mid-server-xxxx' DENGAN KEY KAMU YANG ASLI
         let snap = new midtransClient.Snap({
-            isProduction: true, // Ganti false jika masih sandbox
+            isProduction: false,
             serverKey: 'Mid-server-_me4GdmlxcS5FlNmSDV0Po53'
         });
 
@@ -34,13 +38,10 @@ export default async function handler(req, res) {
                 order_id: orderId,
                 gross_amount: total
             },
-            credit_card: {
-                secure: true
-            },
             item_details: items,
             customer_details: {
                 first_name: customer.name || "Guest",
-                email: customer.email || "robyakshay011@gmail.com",
+                email: customer.email || "guest@example.com",
             }
         };
 
@@ -51,4 +52,4 @@ export default async function handler(req, res) {
         console.error('Midtrans Error:', error);
         res.status(500).json({ error: error.message });
     }
-}
+};
