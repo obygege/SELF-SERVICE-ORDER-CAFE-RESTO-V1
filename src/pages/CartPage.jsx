@@ -1,39 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Plus, Minus, CreditCard, Banknote, MapPin, ShoppingBag, Pencil, Loader2, Navigation, AlertTriangle } from 'lucide-react';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { ArrowLeft, Plus, Minus, CreditCard, MapPin, Loader2, Navigation, AlertTriangle, X, Upload, Download, Image as ImageIcon, User, AlertCircle, Armchair, Lock, QrCode, ScanLine } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CartPage = () => {
     const { cart, addToCart, decreaseQty, getCartTotal, clearCart } = useCart();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
-    const [paymentMethod, setPaymentMethod] = useState('online');
-    const [diningOption, setDiningOption] = useState('dine-in');
-    const [orderNote, setOrderNote] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [searchParams] = useSearchParams();
 
-    // STATE LOKASI
+    const [customerName, setCustomerName] = useState(currentUser?.displayName || '');
+    const [scannedTable, setScannedTable] = useState(null);
+    const [orderNote, setOrderNote] = useState('');
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCheckingTable, setIsCheckingTable] = useState(false);
+    const [showQrisModal, setShowQrisModal] = useState(false);
+    const [showTableOccupiedModal, setShowTableOccupiedModal] = useState(false);
+
+    const [uniqueCode, setUniqueCode] = useState(0);
+    const [proofImage, setProofImage] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+
     const [checkingLoc, setCheckingLoc] = useState(false);
     const [storeConfig, setStoreConfig] = useState(null);
-    const [userDistance, setUserDistance] = useState(null);
     const [isLocationValid, setIsLocationValid] = useState(false);
-    const [locationError, setLocationError] = useState(null);
 
     const subTotal = getCartTotal();
-    const adminFee = paymentMethod === 'online' ? 500 : 0;
-    const grandTotal = subTotal + adminFee;
+    const totalWithCode = subTotal + uniqueCode;
 
-    // 1. LOAD SETTING TOKO SAAT AWAL BUKA HALAMAN
     useEffect(() => {
+        const urlTable = searchParams.get('table');
+        const savedTable = localStorage.getItem('activeTable');
+        const finalTable = urlTable || savedTable;
+
+        if (finalTable) {
+            setScannedTable(finalTable);
+            if (urlTable) {
+                localStorage.setItem('activeTable', urlTable);
+            }
+        }
+
+        const code = Math.floor(Math.random() * 199) + 1;
+        setUniqueCode(code);
+
         const fetchConfig = async () => {
             try {
                 const docRef = doc(db, "settings", "location");
                 const docSnap = await getDoc(docRef);
-
                 if (docSnap.exists()) {
                     setStoreConfig(docSnap.data());
                     checkUserLocation(docSnap.data());
@@ -41,161 +59,145 @@ const CartPage = () => {
                     setIsLocationValid(true);
                     setStoreConfig({ bypass: true });
                 }
-            } catch (error) {
-                console.error("Gagal load config", error);
-                setIsLocationValid(true);
-            }
+            } catch (error) { setIsLocationValid(true); }
         };
         fetchConfig();
-    }, []);
+    }, [searchParams]);
 
     const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
         const R = 6371;
         const dLat = (lat2 - lat1) * (Math.PI / 180);
         const dLon = (lon2 - lon1) * (Math.PI / 180);
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     const checkUserLocation = (config) => {
-        if (!config || !config.latitude || !config.longitude) {
-            setIsLocationValid(true);
-            return;
-        }
-
+        if (!config || !config.latitude) { setIsLocationValid(true); return; }
         setCheckingLoc(true);
-        setLocationError(null);
-
-        if (!navigator.geolocation) {
-            setLocationError("Browser tidak dukung GPS");
-            setCheckingLoc(false);
-            return;
-        }
-
+        if (!navigator.geolocation) { setCheckingLoc(false); return; }
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const userLat = position.coords.latitude;
-                const userLng = position.coords.longitude;
-
-                const dist = getDistanceFromLatLonInKm(userLat, userLng, config.latitude, config.longitude);
-                setUserDistance(dist);
-
-                const maxRadius = config.radiusKM || 0.1;
-
-                if (dist <= maxRadius) {
-                    setIsLocationValid(true);
-                    toast.success(`Lokasi Terverifikasi (${(dist * 1000).toFixed(0)}m)`);
-                } else {
-                    setIsLocationValid(false);
-                    setLocationError(`Terlalu Jauh: ${(dist).toFixed(2)} km (Max: ${maxRadius} km)`);
-                }
+            (pos) => {
+                const dist = getDistanceFromLatLonInKm(pos.coords.latitude, pos.coords.longitude, config.latitude, config.longitude);
+                const max = config.radiusKM || 0.1;
+                if (dist <= max) setIsLocationValid(true);
+                else setIsLocationValid(false);
                 setCheckingLoc(false);
             },
-            (error) => {
-                console.error(error);
-                setCheckingLoc(false);
-                setLocationError("Gagal Deteksi Lokasi. Pastikan GPS Aktif!");
-                setIsLocationValid(false);
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
+            () => { setCheckingLoc(false); setIsLocationValid(false); },
+            { enableHighAccuracy: true }
         );
     };
 
-    const handlePayment = async () => {
-        if (grandTotal <= 0) return;
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error("Ukuran file maksimal 2MB");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProofImage(reader.result);
+                setPreviewUrl(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
-        if (!isLocationValid && storeConfig && !storeConfig.bypass) {
-            toast.error("Lokasi Anda tidak valid untuk memesan.");
+    const checkTableAvailability = async (tableNumber) => {
+        const q = query(
+            collection(db, "orders"),
+            where("tableNumber", "==", tableNumber),
+            where("status", "in", ["pending", "cooking", "ready", "unpaid", "payment_rejected"])
+        );
+        const snapshot = await getDocs(q);
+        return !snapshot.empty;
+    };
+
+    const handlePreCheck = async () => {
+        if (subTotal <= 0) return;
+        if (!customerName.trim()) { toast.error("Mohon isi Nama Anda"); return; }
+
+        if (!scannedTable) {
+            toast.error("Wajib Scan QR Code di atas meja!", {
+                icon: '📷',
+                style: { borderRadius: '10px', background: '#333', color: '#fff' },
+                duration: 5000
+            });
+            return;
+        }
+
+        if (!isLocationValid && storeConfig && !storeConfig.bypass) { toast.error("Lokasi Anda terlalu jauh dari Cafe"); return; }
+
+        setIsCheckingTable(true);
+        try {
+            const isOccupied = await checkTableAvailability(scannedTable);
+            setIsCheckingTable(false);
+
+            if (isOccupied) {
+                setShowTableOccupiedModal(true);
+                return;
+            }
+
+            setShowQrisModal(true);
+
+        } catch (error) {
+            setIsCheckingTable(false);
+            toast.error("Gagal mengecek status meja");
+            console.error(error);
+        }
+    };
+
+    const submitToFirebase = async () => {
+        if (!proofImage) {
+            toast.error("Wajib upload bukti pembayaran!");
             return;
         }
 
         setIsSubmitting(true);
-
         try {
             const orderId = `TRX-${Date.now().toString().slice(-8)}`;
-            const itemsMidtrans = Object.values(cart).map(item => ({
-                id: item.id,
-                price: item.price,
-                quantity: item.qty,
-                name: item.name.substring(0, 49)
-            }));
 
-            if (paymentMethod === 'online') itemsMidtrans.push({ id: 'FEE', price: 500, quantity: 1, name: 'Biaya Layanan' });
+            await addDoc(collection(db, "orders"), {
+                orderId,
+                tableNumber: scannedTable,
+                customerName: customerName,
+                customerEmail: currentUser?.email || '-',
+                items: Object.values(cart),
+                subTotal,
+                uniqueCode,
+                total: totalWithCode,
+                paymentMethod: 'QRIS Transfer',
+                proofImage: proofImage,
+                diningOption: 'dine-in',
+                note: orderNote,
+                status: 'pending',
+                paymentStatus: 'unpaid',
+                createdAt: serverTimestamp()
+            });
 
-            const processOrder = async (statusArg) => {
-                try {
-                    await addDoc(collection(db, "orders"), {
-                        orderId,
-                        tableNumber: localStorage.getItem('activeTable') || 1,
-                        customerName: currentUser?.displayName || "Guest",
-                        customerEmail: currentUser?.email,
-                        items: Object.values(cart),
-                        subTotal, adminFee, total: grandTotal,
-                        paymentMethod: paymentMethod === 'online' ? 'Transfer/QRIS' : 'Cash',
-                        diningOption: diningOption,
-                        note: orderNote,
-                        status: 'pending',
-                        paymentStatus: statusArg,
-                        createdAt: serverTimestamp()
-                    });
+            Object.values(cart).forEach(async (item) => {
+                await updateDoc(doc(db, "products", item.id), { stock: increment(-item.qty) });
+            });
 
-                    Object.values(cart).forEach(async (item) => {
-                        await updateDoc(doc(db, "products", item.id), { stock: increment(-item.qty) });
-                    });
-
-                    clearCart();
-                    toast.success("Pesanan Berhasil!");
-                    navigate('/history');
-                } catch (error) {
-                    toast.error("Gagal simpan order");
-                    setIsSubmitting(false);
-                }
-            };
-
-            if (paymentMethod === 'cash') {
-                await processOrder('unpaid');
-            } else {
-                // Online Payment Logic
-                try {
-                    // PERBAIKAN: Gunakan endpoint relative /api/payment
-                    const response = await fetch('/api/payment', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            orderId,
-                            total: grandTotal,
-                            items: itemsMidtrans,
-                            customer: { name: currentUser?.displayName, email: currentUser?.email }
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (!response.ok) throw new Error(data.error || "Gagal request payment");
-
-                    if (data.token) {
-                        window.snap.pay(data.token, {
-                            onSuccess: () => processOrder('paid'),
-                            onPending: () => processOrder('pending'),
-                            onError: () => { toast.error("Gagal Bayar"); setIsSubmitting(false); },
-                            onClose: () => { toast("Batal"); setIsSubmitting(false); }
-                        });
-                    } else {
-                        throw new Error("Token tidak diterima");
-                    }
-                } catch (error) {
-                    console.error(error);
-                    toast.error(`Koneksi Error: ${error.message}`);
-                    setIsSubmitting(false);
-                }
-            }
-        } catch (err) {
-            console.error(err);
+            clearCart();
+            toast.success("Pesanan Berhasil!");
+            navigate('/history');
+        } catch (error) {
+            console.error(error);
+            toast.error("Gagal membuat pesanan");
             setIsSubmitting(false);
         }
+    };
+
+    const downloadQris = () => {
+        const link = document.createElement('a');
+        link.href = '/assets/qris.png';
+        link.download = 'QRIS-Cafe-Futura.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     if (Object.keys(cart).length === 0) return <div className="p-10 text-center">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
@@ -204,38 +206,14 @@ const CartPage = () => {
         <div className="min-h-screen bg-gray-50 pb-36">
             <header className="bg-white p-4 shadow-sm sticky top-0 z-10 flex items-center gap-4">
                 <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft size={24} /></button>
-                <h1 className="font-bold text-lg">Checkout Pesanan</h1>
+                <h1 className="font-bold text-lg">Checkout</h1>
             </header>
 
             <div className="p-4 space-y-4">
-                {/* --- CARD STATUS LOKASI --- */}
-                <div className={`border p-4 rounded-xl flex items-start gap-3 transition-colors ${checkingLoc ? 'bg-blue-50 border-blue-200 text-blue-700' :
-                        isLocationValid ? 'bg-green-50 border-green-200 text-green-700' :
-                            'bg-red-50 border-red-200 text-red-700'
-                    }`}>
-                    <div className="mt-1 shrink-0">
-                        {checkingLoc ? <Loader2 size={20} className="animate-spin" /> :
-                            isLocationValid ? <Navigation size={20} /> : <AlertTriangle size={20} />}
-                    </div>
+                <div className={`border p-4 rounded-xl flex items-start gap-3 ${checkingLoc ? 'bg-blue-50 text-blue-700' : isLocationValid ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    <div className="mt-1 shrink-0">{checkingLoc ? <Loader2 className="animate-spin" /> : isLocationValid ? <Navigation /> : <AlertTriangle />}</div>
                     <div className="flex-1">
-                        <p className="font-bold text-sm">
-                            {checkingLoc ? "Memeriksa Lokasi Anda..." :
-                                isLocationValid ? "Lokasi Terverifikasi" : "Lokasi Tidak Valid"}
-                        </p>
-                        <p className="text-xs opacity-90 mt-1">
-                            {checkingLoc ? "Mohon tunggu sebentar..." :
-                                isLocationValid ? `Anda berada di dalam area toko (${userDistance ? (userDistance * 1000).toFixed(0) : 0}m).` :
-                                    locationError || "Anda berada di luar jangkauan area pemesanan."}
-                        </p>
-
-                        {!checkingLoc && !isLocationValid && (
-                            <button
-                                onClick={() => checkUserLocation(storeConfig)}
-                                className="mt-2 text-xs bg-white border border-red-200 px-3 py-1.5 rounded-lg shadow-sm font-bold active:scale-95 transition"
-                            >
-                                Coba Cek Lagi
-                            </button>
-                        )}
+                        <p className="font-bold text-sm">{checkingLoc ? "Cek Lokasi..." : isLocationValid ? "Lokasi Valid (Dalam Jangkauan)" : "Lokasi Invalid (Terlalu Jauh)"}</p>
                     </div>
                 </div>
 
@@ -254,24 +232,83 @@ const CartPage = () => {
                     </div>
                 ))}
 
-                <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <h3 className="font-bold mb-2 text-sm text-gray-500 uppercase flex items-center gap-2"><Pencil size={14} /> Catatan</h3>
-                    <textarea className="w-full bg-gray-50 border p-3 rounded-lg text-sm" rows="2" placeholder="Cth: Jangan pedas..." value={orderNote} onChange={(e) => setOrderNote(e.target.value)}></textarea>
-                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+                    <h3 className="font-bold text-sm text-gray-500 uppercase border-b pb-2">Data Pemesan</h3>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <h3 className="font-bold mb-3 text-sm text-gray-500 uppercase">Opsi Penyajian</h3>
-                    <div className="flex gap-3">
-                        <button onClick={() => setDiningOption('dine-in')} className={`flex-1 p-3 border rounded-xl flex flex-col items-center gap-2 ${diningOption === 'dine-in' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200'}`}><MapPin size={24} /><span className="text-xs font-bold">Diantar</span></button>
-                        <button onClick={() => setDiningOption('takeaway')} className={`flex-1 p-3 border rounded-xl flex flex-col items-center gap-2 ${diningOption === 'takeaway' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200'}`}><ShoppingBag size={24} /><span className="text-xs font-bold">Ambil</span></button>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Nama Pemesan <span className="text-red-500">*</span></label>
+                        <div className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-gray-50 focus-within:bg-white focus-within:border-orange-500 transition">
+                            <User size={18} className="text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Masukkan Nama Anda"
+                                className="w-full bg-transparent outline-none font-bold text-gray-800"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Nomor Meja <span className="text-red-500">* (Wajib Scan)</span></label>
+
+                        <div className={`flex items-center gap-2 border rounded-xl px-3 py-2 transition ${scannedTable ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-200'}`}>
+                            {scannedTable ? <QrCode size={18} className="text-green-600" /> : <ScanLine size={18} className="text-red-400 animate-pulse" />}
+
+                            <input
+                                type="text"
+                                placeholder="Belum Scan QR Code"
+                                className={`w-full bg-transparent outline-none font-bold ${scannedTable ? 'text-green-800' : 'text-red-800'}`}
+                                value={scannedTable ? scannedTable : ''}
+                                readOnly
+                                disabled
+                            />
+
+                            <Lock size={14} className={scannedTable ? "text-green-600" : "text-red-400"} />
+                        </div>
+
+                        {!scannedTable ? (
+                            <p className="text-[10px] text-red-500 mt-1 font-bold flex items-center gap-1">
+                                <AlertCircle size={10} /> Anda belum Scan QR Code di meja.
+                            </p>
+                        ) : (
+                            <p className="text-[10px] text-green-600 mt-1 font-bold flex items-center gap-1">
+                                <QrCode size={10} /> Meja terverifikasi dari Scan QR
+                            </p>
+                        )}
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Catatan Tambahan</label>
+                        <textarea
+                            placeholder="Contoh: Jangan terlalu pedas, es dipisah..."
+                            className="w-full border rounded-xl px-3 py-2 bg-gray-50 outline-none text-sm"
+                            rows={2}
+                            value={orderNote}
+                            onChange={(e) => setOrderNote(e.target.value)}
+                        ></textarea>
                     </div>
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <h3 className="font-bold mb-3 text-sm text-gray-500 uppercase">Pembayaran</h3>
-                    <div className="flex gap-3">
-                        <button onClick={() => setPaymentMethod('online')} className={`flex-1 p-3 border rounded-xl flex flex-col items-center gap-2 ${paymentMethod === 'online' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200'}`}><CreditCard size={24} /><span className="text-xs font-bold">Transfer/QRIS</span></button>
-                        <button onClick={() => setPaymentMethod('cash')} className={`flex-1 p-3 border rounded-xl flex flex-col items-center gap-2 ${paymentMethod === 'cash' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200'}`}><Banknote size={24} /><span className="text-xs font-bold">Tunai</span></button>
+                    <h3 className="font-bold mb-3 text-sm text-gray-500 uppercase">Opsi Penyajian</h3>
+                    <div className="p-3 border border-orange-500 bg-orange-50 rounded-xl flex items-center gap-3">
+                        <MapPin size={24} className="text-orange-600" />
+                        <div>
+                            <span className="text-sm font-bold block text-orange-800">Diantar ke Meja</span>
+                            <span className="text-[10px] text-orange-600">Pesanan akan diantar waiter ke meja Anda.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-sm">
+                    <h3 className="font-bold mb-3 text-sm text-gray-500 uppercase">Metode Pembayaran</h3>
+                    <div className="p-3 border border-blue-500 bg-blue-50 rounded-xl flex items-center gap-3">
+                        <CreditCard size={24} className="text-blue-600" />
+                        <div>
+                            <span className="text-sm font-bold block text-blue-800">QRIS (Cashless Only)</span>
+                            <span className="text-[10px] text-blue-600">Scan QRIS & Upload Bukti Transfer.</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -279,29 +316,103 @@ const CartPage = () => {
             <div className="fixed bottom-0 w-full bg-white border-t p-4 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                 <div className="flex justify-between mb-3 font-bold text-lg">
                     <span>Total</span>
-                    <span>Rp {grandTotal.toLocaleString()}</span>
+                    <span>Rp {totalWithCode.toLocaleString()}</span>
                 </div>
 
                 <button
-                    onClick={handlePayment}
-                    disabled={isSubmitting || checkingLoc || !isLocationValid}
+                    onClick={handlePreCheck}
+                    disabled={isSubmitting || checkingLoc || !isLocationValid || isCheckingTable}
                     className={`w-full py-4 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 text-white transition-all
-                        ${(isSubmitting || checkingLoc) ? 'bg-gray-400 cursor-wait' :
-                            !isLocationValid ? 'bg-red-400 cursor-not-allowed' :
-                                'bg-slate-900 hover:bg-slate-800 active:scale-[0.98]'}
+                        ${(isSubmitting || checkingLoc || isCheckingTable) ? 'bg-gray-400 cursor-wait' : !isLocationValid ? 'bg-red-400' : !scannedTable ? 'bg-gray-400' : 'bg-slate-900 hover:bg-slate-800'}
                     `}
                 >
-                    {checkingLoc ? <><Loader2 className="animate-spin" /> Cek Lokasi...</> :
-                        isSubmitting ? <><Loader2 className="animate-spin" /> Memproses...</> :
-                            !isLocationValid ? 'Lokasi Tidak Valid' : 'Buat Pesanan'}
+                    {isSubmitting || isCheckingTable ? <><Loader2 className="animate-spin" /> Memproses...</> : 'Buat Pesanan'}
                 </button>
-
-                {!isLocationValid && !checkingLoc && (
-                    <p className="text-center text-xs text-red-500 mt-2 font-medium">
-                        Anda harus berada di lokasi toko untuk memesan.
-                    </p>
-                )}
             </div>
+
+            {showTableOccupiedModal && (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl">
+                        <div className="bg-red-100 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                            <Armchair size={32} className="text-red-600" />
+                        </div>
+                        <h3 className="font-bold text-lg text-gray-800 mb-2">Meja Sedang Terisi</h3>
+                        <p className="text-sm text-gray-600 mb-6">
+                            Maaf, <b>Meja {scannedTable}</b> sudah memiliki pesanan aktif yang belum selesai.
+                            <br /><br />
+                            Silakan pindah ke meja lain yang kosong dan Scan QR Code di meja tersebut.
+                        </p>
+                        <button
+                            onClick={() => setShowTableOccupiedModal(false)}
+                            className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700"
+                        >
+                            Baik, Saya Pindah Meja
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showQrisModal && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 flex flex-col items-center max-h-[95vh] overflow-y-auto">
+                        <div className="w-full flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">Pembayaran QRIS</h3>
+                            <button onClick={() => setShowQrisModal(false)}><X className="text-gray-500" /></button>
+                        </div>
+
+                        <div className="relative group w-full flex justify-center mb-4">
+                            <div className="bg-white p-2 border-2 border-orange-500 rounded-xl shadow-lg">
+                                <img src="/assets/qris.png" alt="QRIS CODE" className="h-64 object-contain" onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=QRIS+IMAGE'} />
+                            </div>
+                            <button onClick={downloadQris} className="absolute bottom-4 right-1/2 translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg hover:bg-slate-700">
+                                <Download size={14} /> Simpan QRIS
+                            </button>
+                        </div>
+
+                        <div className="text-center w-full mb-4 bg-orange-50 p-4 rounded-xl border border-orange-200">
+                            <p className="text-sm text-gray-600 mb-1 font-bold">TOTAL TRANSFER:</p>
+                            <div className="text-4xl font-black text-orange-600 tracking-tight">
+                                Rp {totalWithCode.toLocaleString('id-ID')}
+                            </div>
+                            <div className="mt-2 text-xs bg-white p-2 rounded border border-orange-100 text-orange-800">
+                                Kode Unik: <b>{uniqueCode}</b> (Sudah termasuk)
+                            </div>
+                        </div>
+
+                        <div className="w-full mb-6">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Upload Bukti Transfer <span className="text-red-500">*</span></label>
+                            <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 text-center hover:bg-gray-100 transition cursor-pointer">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                {previewUrl ? (
+                                    <div className="relative">
+                                        <img src={previewUrl} alt="Preview" className="h-32 mx-auto rounded object-contain" />
+                                        <div className="text-xs text-green-600 font-bold mt-2 flex items-center justify-center gap-1"><ImageIcon size={12} /> Foto Siap Upload</div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center text-gray-400">
+                                        <Upload size={32} className="mb-2" />
+                                        <span className="text-xs font-bold">Klik untuk upload foto</span>
+                                        <span className="text-[10px]">Format: JPG/PNG (Max 2MB)</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={submitToFirebase}
+                            disabled={isSubmitting}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2"
+                        >
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Konfirmasi Pembayaran"}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

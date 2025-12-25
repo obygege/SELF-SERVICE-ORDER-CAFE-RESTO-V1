@@ -6,6 +6,7 @@ import { CartProvider } from './context/CartContext';
 
 import LoginUser from './pages/LoginUser';
 import LoginStaff from './pages/LoginStaff';
+import LoginKitchenBarista from './pages/LoginKitchenBarista';
 import UserMenu from './pages/UserMenu';
 import CartPage from './pages/CartPage';
 import OrderHistory from './pages/OrderHistory';
@@ -30,6 +31,9 @@ const PrivateRoute = ({ children, allowedRoles }) => {
     if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/head')) {
       return <Navigate to="/staff-login" replace />;
     }
+    if (location.pathname.startsWith('/kitchen') || location.pathname.startsWith('/barista')) {
+      return <Navigate to="/kitchen-login" replace />;
+    }
     return <Navigate to={`/login${location.search}`} replace />;
   }
 
@@ -37,6 +41,8 @@ const PrivateRoute = ({ children, allowedRoles }) => {
     if (userRole === 'user') return <Navigate to="/" />;
     if (userRole === 'admin') return <Navigate to="/admin" />;
     if (userRole === 'head') return <Navigate to="/head" />;
+    if (userRole === 'kitchen') return <Navigate to="/kitchen" />;
+    if (userRole === 'barista') return <Navigate to="/barista" />;
     return <Navigate to="/" />;
   }
 
@@ -53,6 +59,7 @@ function App() {
             <Route path="/setup-toko" element={<SetupPage />} />
             <Route path="/login" element={<LoginUser />} />
             <Route path="/staff-login" element={<LoginStaff />} />
+            <Route path="/kitchen-login" element={<LoginKitchenBarista />} />
 
             <Route path="/" element={<PrivateRoute allowedRoles={['user', 'admin', 'head']}><UserMenu /></PrivateRoute>} />
             <Route path="/cart" element={<PrivateRoute allowedRoles={['user', 'admin', 'head']}><CartPage /></PrivateRoute>} />
@@ -72,7 +79,15 @@ function App() {
               <Route index element={<AdminReports />} />
             </Route>
 
-            <Route path="/profile" element={<PrivateRoute allowedRoles={['admin', 'head', 'user']}><AdminLayout /></PrivateRoute>}>
+            <Route path="/kitchen" element={<PrivateRoute allowedRoles={['kitchen', 'head', 'admin']}><AdminLayout /></PrivateRoute>}>
+              <Route index element={<AdminLiveOrders />} />
+            </Route>
+
+            <Route path="/barista" element={<PrivateRoute allowedRoles={['barista', 'head', 'admin']}><AdminLayout /></PrivateRoute>}>
+              <Route index element={<AdminLiveOrders />} />
+            </Route>
+
+            <Route path="/profile" element={<PrivateRoute allowedRoles={['admin', 'head', 'user', 'kitchen', 'barista']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<UserProfile />} />
             </Route>
 

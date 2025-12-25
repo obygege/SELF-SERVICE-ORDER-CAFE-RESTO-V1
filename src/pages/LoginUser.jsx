@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Lock, Mail, User, UtensilsCrossed, Loader2, Navigation, AlertCircle } from 'lucide-react';
+import { Lock, Mail, User, UtensilsCrossed, Navigation, ChefHat, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const LoginUser = () => {
@@ -175,8 +175,8 @@ const LoginUser = () => {
 
                     <div className="flex flex-col items-center justify-center gap-1 mb-4">
                         <span className={`text-[10px] px-3 py-1.5 rounded-full font-bold border flex items-center gap-1 transition-colors ${gpsStatus === 'allowed' ? 'bg-green-50 text-green-700 border-green-200' :
-                                gpsStatus === 'denied' ? 'bg-red-50 text-red-700 border-red-200' :
-                                    'bg-gray-100 text-gray-500 border-gray-200'
+                            gpsStatus === 'denied' ? 'bg-red-50 text-red-700 border-red-200' :
+                                'bg-gray-100 text-gray-500 border-gray-200'
                             }`}>
                             <Navigation size={12} />
                             {gpsStatus === 'loading' && "Mencari Lokasi..."}
@@ -231,7 +231,17 @@ const LoginUser = () => {
                     </div>
 
                     <div className="mt-8 pt-4 border-t text-center">
-                        <Link to="/staff-login" className="text-xs text-gray-400 hover:text-gray-600 font-medium">Login Khusus Staff (Admin/Kepala)</Link>
+                        <p className="text-xs text-gray-400 mb-3 font-bold uppercase tracking-wider">Area Khusus Staff</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Link to="/kitchen-login" className="flex flex-col items-center justify-center p-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl transition border border-green-200 group">
+                                <ChefHat size={20} className="mb-1 group-hover:scale-110 transition-transform" />
+                                <span className="text-[10px] font-bold">Kitchen / Barista</span>
+                            </Link>
+                            <Link to="/staff-login" className="flex flex-col items-center justify-center p-3 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl transition border border-slate-200 group">
+                                <ShieldCheck size={20} className="mb-1 group-hover:scale-110 transition-transform" />
+                                <span className="text-[10px] font-bold">Admin / Owner</span>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>

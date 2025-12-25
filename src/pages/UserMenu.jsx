@@ -38,11 +38,11 @@ const UserMenu = () => {
         return () => unsub();
     }, []);
 
+    const uniqueCategories = ['Semua', ...new Set(products.map(item => item.category))].filter(Boolean).sort();
+
     const filteredProducts = products.filter(item =>
         categoryFilter === 'Semua' ? true : item.category === categoryFilter
     );
-
-    const categories = ['Semua', 'Makanan', 'Minuman', 'Dimsum'];
 
     const handleLogout = async () => {
         await logout();
@@ -53,10 +53,10 @@ const UserMenu = () => {
             <header className="bg-white sticky top-0 z-20 shadow-sm border-b px-4 py-3 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center overflow-hidden border border-orange-100">
-                        <img src="https://cdn-icons-png.flaticon.com/512/3448/3448609.png" alt="Logo" className="w-8 h-8 object-contain" />
+                        <img src="/assets/logo.png" alt="Logo" className="w-8 h-8 object-contain" onError={(e) => e.target.src = 'https://cdn-icons-png.flaticon.com/512/3448/3448609.png'} />
                     </div>
                     <div>
-                        <h1 className="font-bold text-gray-800 leading-tight text-sm">Cafe Futura</h1>
+                        <h1 className="font-bold text-gray-800 leading-tight text-sm">Taki Coffee & Eatery</h1>
                         <p className="text-xs text-gray-500">Meja {displayTable} • {currentUser?.displayName?.split(' ')[0] || 'Guest'}</p>
                     </div>
                 </div>
@@ -82,7 +82,7 @@ const UserMenu = () => {
 
             <div className="px-4 mb-4 overflow-x-auto no-scrollbar">
                 <div className="flex gap-2">
-                    {categories.map(cat => (
+                    {uniqueCategories.map(cat => (
                         <button key={cat} onClick={() => setCategoryFilter(cat)}
                             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shadow-sm ${categoryFilter === cat ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-gray-600 border border-gray-200'}`}>
                             {cat}
@@ -91,48 +91,53 @@ const UserMenu = () => {
                 </div>
             </div>
 
-            <div className="px-4 pb-32 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="px-4 pb-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 {loading ? <p className="col-span-2 text-center text-gray-400 py-10">Memuat menu...</p> :
-                    filteredProducts.map(item => (
-                        <div key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full border border-gray-100">
-                            <div className="h-36 bg-gray-100 relative group">
-                                <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" onError={(e) => e.target.src = 'https://via.placeholder.com/150'} />
-                                {item.stock <= 0 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm"><span className="text-white text-xs font-bold border border-white px-2 py-1 rounded">HABIS</span></div>}
-                            </div>
-
-                            <div className="p-3 flex flex-col flex-1">
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider border px-1 rounded">{item.category}</span>
-                                    <span className="text-[10px] text-gray-400">Stok: {item.stock}</span>
-                                </div>
-                                <h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 leading-tight">{item.name}</h3>
-                                <p className="text-orange-600 font-bold mt-auto">Rp {item.price.toLocaleString()}</p>
-
-                                <div className="mt-3">
-                                    {item.stock <= 0 ? (
-                                        <button disabled className="w-full py-2 rounded-lg text-sm font-bold bg-gray-200 text-gray-500 cursor-not-allowed">Habis</button>
-                                    ) : (
-                                        cart[item.id] ? (
-                                            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-1">
-                                                <button onClick={() => decreaseQty(item.id)} className="p-1 bg-white rounded shadow-sm text-gray-600 hover:text-red-500"><Minus size={14} /></button>
-                                                <span className="font-bold text-sm w-6 text-center">{cart[item.id].qty}</span>
-                                                <button disabled={cart[item.id].qty >= item.stock} onClick={() => addToCart(item)} className={`p-1 bg-white rounded shadow-sm ${cart[item.id].qty >= item.stock ? 'text-gray-300' : 'text-green-600 hover:text-green-700'}`}><Plus size={14} /></button>
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => addToCart(item)} className="w-full py-2 rounded-lg text-sm font-bold bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-colors">
-                                                Tambah
-                                            </button>
-                                        )
-                                    )}
-                                </div>
-                            </div>
+                    filteredProducts.length === 0 ? (
+                        <div className="col-span-full text-center py-10 text-gray-400">
+                            <p>Tidak ada produk di kategori ini</p>
                         </div>
-                    ))}
+                    ) : (
+                        filteredProducts.map(item => (
+                            <div key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full border border-gray-100">
+                                <div className="h-36 bg-gray-100 relative group">
+                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" onError={(e) => e.target.src = 'https://via.placeholder.com/150'} />
+                                    {item.stock <= 0 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm"><span className="text-white text-xs font-bold border border-white px-2 py-1 rounded">HABIS</span></div>}
+                                </div>
+
+                                <div className="p-3 flex flex-col flex-1">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider border px-1 rounded">{item.category}</span>
+                                        <span className="text-[10px] text-gray-400">Stok: {item.stock}</span>
+                                    </div>
+                                    <h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 leading-tight">{item.name}</h3>
+                                    <p className="text-orange-600 font-bold mt-auto">Rp {item.price.toLocaleString()}</p>
+
+                                    <div className="mt-3">
+                                        {item.stock <= 0 ? (
+                                            <button disabled className="w-full py-2 rounded-lg text-sm font-bold bg-gray-200 text-gray-500 cursor-not-allowed">Habis</button>
+                                        ) : (
+                                            cart[item.id] ? (
+                                                <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-1">
+                                                    <button onClick={() => decreaseQty(item.id)} className="p-1 bg-white rounded shadow-sm text-gray-600 hover:text-red-500"><Minus size={14} /></button>
+                                                    <span className="font-bold text-sm w-6 text-center">{cart[item.id].qty}</span>
+                                                    <button disabled={cart[item.id].qty >= item.stock} onClick={() => addToCart(item)} className={`p-1 bg-white rounded shadow-sm ${cart[item.id].qty >= item.stock ? 'text-gray-300' : 'text-green-600 hover:text-green-700'}`}><Plus size={14} /></button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => addToCart(item)} className="w-full py-2 rounded-lg text-sm font-bold bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-colors">
+                                                    Tambah
+                                                </button>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
             </div>
 
-            <footer className="fixed bottom-0 left-0 right-0 py-4 bg-gray-100 text-center z-0">
+            <footer className="py-4 bg-gray-50 text-center pb-24">
                 <p className="text-[10px] text-gray-400 font-medium">Created By <span className="text-orange-600 font-bold">Futura Link</span></p>
-                <div className="h-16"></div>
             </footer>
 
             {getCartCount() > 0 && (

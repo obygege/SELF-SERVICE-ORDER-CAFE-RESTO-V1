@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ClipboardList, History, QrCode, Settings } from 'lucide-react';
+import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ClipboardList, History, QrCode, Settings, ChefHat } from 'lucide-react';
 
 const AdminLayout = () => {
     const { userRole, logout } = useAuth();
@@ -11,25 +11,42 @@ const AdminLayout = () => {
     const handleLogout = async () => {
         if (window.confirm("Yakin ingin keluar?")) {
             await logout();
-            navigate('/staff-login');
+            navigate('/login');
         }
     };
 
     const isActive = (path) => {
-        if (path === '/head' && location.pathname === '/head') return 'text-orange-600 font-bold';
-        if (path !== '/head' && location.pathname.startsWith(path)) return 'text-orange-600 font-bold';
+        if (location.pathname === path || location.pathname.startsWith(path + '/')) return 'text-orange-600 font-bold';
         return 'text-gray-400 hover:text-slate-800';
     };
 
     const desktopActive = (path) => {
-        if (path === '/head' && location.pathname === '/head') return 'bg-orange-600 text-white shadow-lg';
-        if (path !== '/head' && location.pathname.startsWith(path)) return 'bg-orange-600 text-white shadow-lg';
+        if (location.pathname === path || location.pathname.startsWith(path + '/')) return 'bg-orange-600 text-white shadow-lg';
         return 'text-slate-300 hover:bg-slate-800 hover:text-white';
     }
 
+    const getRoleLabel = () => {
+        switch (userRole) {
+            case 'head': return 'KEPALA TOKO';
+            case 'kitchen': return 'KITCHEN STAFF';
+            case 'barista': return 'BARISTA';
+            case 'admin': return 'ADMINISTRATOR';
+            default: return 'STAFF';
+        }
+    };
+
+    const getPageTitle = () => {
+        switch (userRole) {
+            case 'head': return 'Laporan Toko';
+            case 'kitchen': return 'Dapur Area';
+            case 'barista': return 'Bar Area';
+            case 'admin': return 'Control Panel';
+            default: return 'Dashboard';
+        }
+    };
+
     return (
         <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
-            {/* --- DESKTOP SIDEBAR --- */}
             <aside className="w-64 bg-slate-900 text-white hidden md:flex flex-col shadow-xl z-20">
                 <div className="p-6 border-b border-slate-800 flex items-center gap-3">
                     <img
@@ -37,22 +54,12 @@ const AdminLayout = () => {
                         alt="Logo"
                         className="w-10 h-10 object-contain"
                         onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.style.display = 'none'; // Sembunyikan jika error/tidak ada, atau ganti src ke placeholder
+                            e.target.style.display = 'none';
                         }}
                     />
-                    {/* Fallback jika gambar gagal load atau belum ada, bisa pakai div kosong atau icon sementara */}
-                    <img
-                        src="/assets/logo.png" // Contoh logo placeholder transparan (Coffee Cup)
-                        alt="Fallback Logo"
-                        className="w-8 h-8 object-contain"
-                        style={{ display: 'none' }} // Hidden default, show via script logic if needed or just use consistent path
-                        onLoad={(e) => e.target.previousSibling.style.display === 'none' ? e.target.style.display = 'block' : null}
-                    />
-
                     <div>
                         <h1 className="text-xl font-bold tracking-tight">FUTURA LINK</h1>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{userRole === 'head' ? 'KEPALA TOKO' : 'ADMIN'}</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{getRoleLabel()}</p>
                     </div>
                 </div>
 
@@ -89,6 +96,18 @@ const AdminLayout = () => {
                         </Link>
                     )}
 
+                    {userRole === 'kitchen' && (
+                        <Link to="/kitchen" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/kitchen')}`}>
+                            <ChefHat size={20} /> Pesanan Dapur
+                        </Link>
+                    )}
+
+                    {userRole === 'barista' && (
+                        <Link to="/barista" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/barista')}`}>
+                            <Coffee size={20} /> Pesanan Bar
+                        </Link>
+                    )}
+
                     <div className="pt-4 mt-4 border-t border-slate-800">
                         <Link to="/profile" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/profile')}`}>
                             <User size={20} /> Akun Saya
@@ -103,11 +122,9 @@ const AdminLayout = () => {
                 </div>
             </aside>
 
-            {/* --- MAIN CONTENT --- */}
             <main className="flex-1 overflow-y-auto bg-gray-50 relative pb-24 md:pb-0">
                 <header className="bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b px-4 md:px-8 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        {/* Mobile Logo */}
                         <img
                             src="/assets/logo.png"
                             alt="Logo"
@@ -115,11 +132,10 @@ const AdminLayout = () => {
                             onError={(e) => e.target.style.display = 'none'}
                         />
                         <h2 className="font-bold text-gray-800 text-lg">
-                            {userRole === 'admin' ? 'Control Panel' : 'Laporan Toko'}
+                            {getPageTitle()}
                         </h2>
                     </div>
 
-                    {/* Logout Button Mobile (Top Right) */}
                     <button onClick={handleLogout} className="md:hidden p-2 text-red-500 bg-red-50 rounded-full">
                         <LogOut size={20} />
                     </button>
@@ -133,10 +149,9 @@ const AdminLayout = () => {
                 </div>
             </main>
 
-            {/* --- MOBILE BOTTOM NAV (Scrollable) --- */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 overflow-x-auto no-scrollbar">
                 <div className="flex justify-between items-center px-2 py-3 min-w-max w-full">
-                    {userRole === 'admin' ? (
+                    {userRole === 'admin' && (
                         <>
                             <Link to="/admin" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin')}`}>
                                 <LayoutDashboard size={20} /> <span className="text-[9px] font-bold">Dash</span>
@@ -150,26 +165,33 @@ const AdminLayout = () => {
                             <Link to="/admin/reports" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/reports')}`}>
                                 <FileBarChart size={20} /> <span className="text-[9px] font-bold">Laporan</span>
                             </Link>
-                            <Link to="/admin/history" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/history')}`}>
-                                <History size={20} /> <span className="text-[9px] font-bold">Riwayat</span>
-                            </Link>
                             <Link to="/admin/settings" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/settings')}`}>
                                 <Settings size={20} /> <span className="text-[9px] font-bold">Set</span>
                             </Link>
-                            <Link to="/profile" className={`flex flex-col items-center gap-1 px-3 ${isActive('/profile')}`}>
-                                <User size={20} /> <span className="text-[9px] font-bold">Akun</span>
-                            </Link>
-                        </>
-                    ) : (
-                        <>
-                            <Link to="/head" className={`flex flex-col items-center gap-1 px-6 w-1/2 ${isActive('/head')}`}>
-                                <FileBarChart size={24} /> <span className="text-[10px] font-bold">Laporan Keuangan</span>
-                            </Link>
-                            <Link to="/profile" className={`flex flex-col items-center gap-1 px-6 w-1/2 ${isActive('/profile')}`}>
-                                <User size={24} /> <span className="text-[10px] font-bold">Akun Saya</span>
-                            </Link>
                         </>
                     )}
+
+                    {userRole === 'head' && (
+                        <Link to="/head" className={`flex flex-col items-center gap-1 px-6 w-full ${isActive('/head')}`}>
+                            <FileBarChart size={24} /> <span className="text-[10px] font-bold">Laporan Keuangan</span>
+                        </Link>
+                    )}
+
+                    {userRole === 'kitchen' && (
+                        <Link to="/kitchen" className={`flex flex-col items-center gap-1 px-6 w-full ${isActive('/kitchen')}`}>
+                            <ChefHat size={24} /> <span className="text-[10px] font-bold">Pesanan Dapur</span>
+                        </Link>
+                    )}
+
+                    {userRole === 'barista' && (
+                        <Link to="/barista" className={`flex flex-col items-center gap-1 px-6 w-full ${isActive('/barista')}`}>
+                            <Coffee size={24} /> <span className="text-[10px] font-bold">Pesanan Bar</span>
+                        </Link>
+                    )}
+
+                    <Link to="/profile" className={`flex flex-col items-center gap-1 px-3 ${isActive('/profile')}`}>
+                        <User size={20} /> <span className="text-[9px] font-bold">Akun</span>
+                    </Link>
                 </div>
             </div>
         </div>

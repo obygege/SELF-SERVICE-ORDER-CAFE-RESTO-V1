@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { Calendar, TrendingUp, DollarSign, Archive, Loader2, AlertCircle, FileText, Filter } from 'lucide-react';
+import { Calendar, TrendingUp, DollarSign, Archive, Loader2, AlertCircle, FileText, Filter, Clock } from 'lucide-react';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; // PERBAIKAN 1: Import sebagai variabel
+import autoTable from 'jspdf-autotable';
 
 const AdminReports = () => {
     const [allOrders, setAllOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Filter State
-    const [filterType, setFilterType] = useState('daily'); // daily, monthly, yearly, custom
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [startTime, setStartTime] = useState('00:00');
+    const [endTime, setEndTime] = useState('23:59');
 
     const [summary, setSummary] = useState({
         totalRevenue: 0,
@@ -30,7 +26,7 @@ const AdminReports = () => {
 
     useEffect(() => {
         applyFilter();
-    }, [allOrders, filterType, selectedDate, selectedMonth, selectedYear, startDate, endDate]);
+    }, [allOrders, selectedDate, startTime, endTime]);
 
     const fetchReports = async () => {
         try {
@@ -51,7 +47,6 @@ const AdminReports = () => {
                 };
             });
 
-            // Filter Valid Orders (Completed OR Paid)
             const validData = data.filter(o => o.status === 'completed' || o.paymentStatus === 'paid');
             setAllOrders(validData);
         } catch (error) {
@@ -62,31 +57,17 @@ const AdminReports = () => {
     };
 
     const applyFilter = () => {
-        let result = [];
+        if (!selectedDate) return;
 
-        if (filterType === 'daily') {
-            result = allOrders.filter(o => o.date.toISOString().split('T')[0] === selectedDate);
-        } else if (filterType === 'monthly') {
-            result = allOrders.filter(o => o.date.toISOString().slice(0, 7) === selectedMonth);
-        } else if (filterType === 'yearly') {
-            result = allOrders.filter(o => o.date.getFullYear().toString() === selectedYear);
-        } else if (filterType === 'custom') {
-            if (startDate && endDate) {
-                const start = new Date(startDate);
-                start.setHours(0, 0, 0, 0);
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                result = allOrders.filter(o => o.date >= start && o.date <= end);
-            } else {
-                result = allOrders;
-            }
-        } else {
-            result = allOrders;
-        }
+        const startDateTime = new Date(`${selectedDate}T${startTime}:00`);
+        const endDateTime = new Date(`${selectedDate}T${endTime}:59`);
+
+        const result = allOrders.filter(o => {
+            return o.date >= startDateTime && o.date <= endDateTime;
+        });
 
         setFilteredOrders(result);
 
-        // Calculate Summary for Filtered Data
         const totalRev = result.reduce((acc, curr) => acc + curr.total, 0);
         setSummary({
             totalRevenue: totalRev,
@@ -95,67 +76,55 @@ const AdminReports = () => {
         });
     };
 
-    const getFilterLabel = () => {
-        if (filterType === 'daily') return `Harian: ${new Date(selectedDate).toLocaleDateString('id-ID', { dateStyle: 'full' })}`;
-        if (filterType === 'monthly') return `Bulanan: ${selectedMonth}`;
-        if (filterType === 'yearly') return `Tahunan: ${selectedYear}`;
-        if (filterType === 'custom') return `Custom: ${startDate} s/d ${endDate}`;
-        return 'Semua Data';
-    };
-
     const downloadPDF = () => {
         const doc = new jsPDF();
 
-        // Header
         doc.setFontSize(18);
-        doc.text("Laporan Keuangan - Cafe Futura", 14, 20);
+        doc.text("Laporan Keuangan Harian - Cafe Futura", 14, 20);
 
         doc.setFontSize(10);
-        doc.text(`Periode: ${getFilterLabel()}`, 14, 28);
-        doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 14, 34);
+        doc.text(`Tanggal: ${new Date(selectedDate).toLocaleDateString('id-ID', { dateStyle: 'full' })}`, 14, 28);
+        doc.text(`Waktu Filter: ${startTime} s/d ${endTime}`, 14, 34);
+        doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 40);
 
-        // Summary Box
         doc.setDrawColor(200);
         doc.setFillColor(245, 247, 250);
-        doc.rect(14, 40, 180, 25, 'F');
+        doc.rect(14, 46, 180, 25, 'F');
 
         doc.setFontSize(12);
-        doc.text(`Total Omzet: Rp ${summary.totalRevenue.toLocaleString('id-ID')}`, 20, 50);
-        doc.text(`Total Transaksi: ${summary.totalTransactions}`, 20, 58);
+        doc.text(`Total Omzet: Rp ${summary.totalRevenue.toLocaleString('id-ID')}`, 20, 56);
+        doc.text(`Total Transaksi: ${summary.totalTransactions}`, 20, 64);
 
-        // Table Data Preparation
-        const tableColumn = ["No", "Tanggal", "Order ID", "Status", "Metode", "Total"];
+        const tableColumn = ["No", "Jam", "Order ID", "Pelanggan", "Metode", "Total"];
         const tableRows = [];
 
         filteredOrders.forEach((order, index) => {
             const row = [
                 index + 1,
-                order.date.toLocaleString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                order.date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
                 order.orderId,
-                order.status.toUpperCase(),
+                order.customerName || 'Guest',
                 order.paymentMethod,
                 `Rp ${order.total.toLocaleString('id-ID')}`
             ];
             tableRows.push(row);
         });
 
-        // PERBAIKAN 2: Gunakan autoTable(doc, options)
         autoTable(doc, {
-            startY: 70,
+            startY: 76,
             head: [tableColumn],
             body: tableRows,
             theme: 'grid',
-            headStyles: { fillColor: [234, 88, 12] }, // Orange color
+            headStyles: { fillColor: [234, 88, 12] },
             styles: { fontSize: 8 }
         });
 
-        // Footer Total (Menggunakan doc.lastAutoTable.finalY masih aman)
-        const finalY = (doc.lastAutoTable?.finalY || 70) + 10;
+        const finalY = (doc.lastAutoTable?.finalY || 76) + 10;
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         doc.text(`GRAND TOTAL: Rp ${summary.totalRevenue.toLocaleString('id-ID')}`, 140, finalY, { align: 'right' });
 
-        doc.save(`Laporan_Keuangan_${filterType}_${new Date().getTime()}.pdf`);
+        doc.save(`Laporan_Harian_${selectedDate}_${startTime}-${endTime}.pdf`);
     };
 
     if (loading) return (
@@ -169,61 +138,64 @@ const AdminReports = () => {
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <TrendingUp className="text-green-600" /> Laporan Keuangan
+                    <TrendingUp className="text-green-600" /> Laporan Harian
                 </h1>
                 <button onClick={downloadPDF} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg transition">
-                    <FileText size={18} /> Download PDF
+                    <FileText size={18} /> Download PDF (Filtered)
                 </button>
             </div>
 
-            {/* FILTER SECTION */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border mb-6 flex flex-col md:flex-row gap-4 items-end md:items-center flex-wrap">
-                <div className="flex items-center gap-2 text-gray-700 font-bold mr-2">
-                    <Filter size={18} /> Filter:
-                </div>
-
-                <select
-                    className="border p-2 rounded-lg bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                >
-                    <option value="daily">Harian</option>
-                    <option value="monthly">Bulanan</option>
-                    <option value="yearly">Tahunan</option>
-                    <option value="custom">Range Tanggal</option>
-                </select>
-
-                {filterType === 'daily' && (
-                    <input type="date" className="border p-2 rounded-lg" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-                )}
-
-                {filterType === 'monthly' && (
-                    <input type="month" className="border p-2 rounded-lg" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
-                )}
-
-                {filterType === 'yearly' && (
-                    <select className="border p-2 rounded-lg bg-white" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
-                        {[...Array(5)].map((_, i) => {
-                            const year = new Date().getFullYear() - i;
-                            return <option key={year} value={year}>{year}</option>;
-                        })}
-                    </select>
-                )}
-
-                {filterType === 'custom' && (
-                    <div className="flex gap-2 items-center">
-                        <input type="date" className="border p-2 rounded-lg" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                        <span className="text-gray-400">-</span>
-                        <input type="date" className="border p-2 rounded-lg" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <div className="bg-white p-4 rounded-xl shadow-sm border mb-6">
+                <div className="flex flex-col md:flex-row gap-4 items-end md:items-center flex-wrap">
+                    <div className="flex items-center gap-2 text-gray-700 font-bold mr-2">
+                        <Filter size={18} /> Filter Waktu:
                     </div>
-                )}
+
+                    <div className="flex flex-col">
+                        <label className="text-xs text-gray-500 mb-1">Tanggal</label>
+                        <div className="flex items-center gap-2 border p-2 rounded-lg bg-gray-50">
+                            <Calendar size={16} className="text-gray-400" />
+                            <input
+                                type="date"
+                                className="bg-transparent outline-none text-sm font-medium"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                        <label className="text-xs text-gray-500 mb-1">Jam Mulai</label>
+                        <div className="flex items-center gap-2 border p-2 rounded-lg bg-gray-50">
+                            <Clock size={16} className="text-gray-400" />
+                            <input
+                                type="time"
+                                className="bg-transparent outline-none text-sm font-medium"
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                        <label className="text-xs text-gray-500 mb-1">Jam Selesai</label>
+                        <div className="flex items-center gap-2 border p-2 rounded-lg bg-gray-50">
+                            <Clock size={16} className="text-gray-400" />
+                            <input
+                                type="time"
+                                className="bg-transparent outline-none text-sm font-medium"
+                                value={endTime}
+                                onChange={(e) => setEndTime(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* SUMMARY CARDS */}
             <div className="grid gap-6 md:grid-cols-3 mb-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10 text-blue-500"><DollarSign size={64} /></div>
-                    <p className="text-gray-500 text-sm font-medium uppercase mb-2">Total Omzet (Filtered)</p>
+                    <p className="text-gray-500 text-sm font-medium uppercase mb-2">Total Omzet</p>
                     <h3 className="text-3xl font-bold text-gray-800">Rp {summary.totalRevenue.toLocaleString('id-ID')}</h3>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
@@ -233,15 +205,14 @@ const AdminReports = () => {
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10 text-green-500"><TrendingUp size={64} /></div>
-                    <p className="text-gray-500 text-sm font-medium uppercase mb-2">Rata-rata Transaksi</p>
+                    <p className="text-gray-500 text-sm font-medium uppercase mb-2">Rata-rata Order</p>
                     <h3 className="text-3xl font-bold text-gray-800">Rp {summary.averageOrderValue.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</h3>
                 </div>
             </div>
 
-            {/* TABLE DATA */}
             <div className="bg-white rounded-xl shadow-sm border p-6">
                 <h3 className="font-bold text-lg mb-4 text-gray-700 flex justify-between items-center">
-                    <span>Detail Transaksi</span>
+                    <span>Detail Transaksi Harian</span>
                     <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{filteredOrders.length} Data Ditampilkan</span>
                 </h3>
 
@@ -249,7 +220,7 @@ const AdminReports = () => {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 text-gray-500 border-b sticky top-0 z-10">
                             <tr>
-                                <th className="p-3">Waktu</th>
+                                <th className="p-3">Jam</th>
                                 <th className="p-3">Order ID</th>
                                 <th className="p-3">Pelanggan</th>
                                 <th className="p-3">Status</th>
@@ -264,14 +235,14 @@ const AdminReports = () => {
                                     <td colSpan="7" className="p-8 text-center text-gray-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <AlertCircle size={24} />
-                                            <span>Tidak ada data untuk periode filter ini.</span>
+                                            <span>Tidak ada transaksi pada rentang waktu ini.</span>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
                                 filteredOrders.map((order, idx) => (
                                     <tr key={idx} className="hover:bg-gray-50">
-                                        <td className="p-3 text-gray-500">{order.date.toLocaleString('id-ID')}</td>
+                                        <td className="p-3 text-gray-500">{order.date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</td>
                                         <td className="p-3 font-mono font-bold text-orange-600">{order.orderId}</td>
                                         <td className="p-3 font-medium">{order.customerName || 'Guest'}</td>
                                         <td className="p-3">
