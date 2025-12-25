@@ -58,7 +58,7 @@ const AdminLayout = () => {
                         }}
                     />
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight">FUTURA LINK</h1>
+                        <h1 className="text-s font-bold tracking-tight">TAKI COFFEE & EATERY</h1>
                         <p className="text-[10px] text-slate-400 uppercase tracking-widest">{getRoleLabel()}</p>
                     </div>
                 </div>

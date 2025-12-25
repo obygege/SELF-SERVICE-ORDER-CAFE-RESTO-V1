@@ -3,15 +3,36 @@ import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { useReactToPrint } from 'react-to-print';
 import { useAuth } from '../context/AuthContext';
-import { BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, Clock, RefreshCw, Eye, ChefHat, Coffee, CheckCircle, ArrowRight } from 'lucide-react';
+import { BellRing, Printer, Search, Edit2, X, Plus, Minus, Banknote, Clock, RefreshCw, Eye, ChefHat, Coffee, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const isDrinkCategory = (category) => {
+    if (!category) return false;
+    const lower = category.toLowerCase();
+    return lower.includes('minuman') ||
+        lower.includes('drink') ||
+        lower.includes('coffee') ||
+        lower.includes('kopi') ||
+        lower.includes('tea') ||
+        lower.includes('teh') ||
+        lower.includes('ice') ||
+        lower.includes('jus') ||
+        lower.includes('juice') ||
+        lower.includes('squash') ||
+        lower.includes('latte') ||
+        lower.includes('non-coffee');
+};
 
 const Receipt = React.forwardRef(({ order, role }, ref) => {
     if (!order) return null;
 
-    const displayItems = role === 'kitchen' ? order.items.filter(i => i.category === 'food') :
-        role === 'barista' ? order.items.filter(i => i.category === 'drink') :
-            order.items;
+    let displayItems = order.items;
+
+    if (role === 'kitchen') {
+        displayItems = order.items.filter(i => !isDrinkCategory(i.category));
+    } else if (role === 'barista') {
+        displayItems = order.items.filter(i => isDrinkCategory(i.category));
+    }
 
     if (displayItems.length === 0) return null;
 
@@ -27,12 +48,12 @@ const Receipt = React.forwardRef(({ order, role }, ref) => {
 
             <div className="text-center mb-2">
                 {!isKitchenOrBar && (
-                    <img src="/logo.png" alt="LOGO" style={{ height: '40px', margin: '0 auto 5px auto', filter: 'grayscale(100%)' }} onError={(e) => e.target.style.display = 'none'} />
+                    <img src="/assets/logo.png" alt="LOGO" style={{ height: '40px', margin: '0 auto 5px auto', filter: 'grayscale(100%)' }} onError={(e) => e.target.style.display = 'none'} />
                 )}
                 <h2 className="font-extrabold text-lg uppercase leading-none mb-1">CAFE FUTURA</h2>
                 {isKitchenOrBar ? (
                     <div className="border border-black p-1 inline-block font-bold mt-1 uppercase">
-                        NOTA {role === 'kitchen' ? 'DAPUR' : 'BAR'}
+                        NOTA {role === 'kitchen' ? 'DAPUR (MAKANAN)' : 'BAR (MINUMAN)'}
                     </div>
                 ) : (
                     <p className="text-[9px]">Jl. Teknologi No. 88, Palembang</p>
@@ -62,6 +83,7 @@ const Receipt = React.forwardRef(({ order, role }, ref) => {
                                 <span>{(item.price * item.qty).toLocaleString('id-ID')}</span>
                             </div>
                         )}
+                        {item.note && <div className="pl-2 italic text-[8px]">Catatan: {item.note}</div>}
                     </div>
                 ))}
             </div>
@@ -84,7 +106,7 @@ const Receipt = React.forwardRef(({ order, role }, ref) => {
 
             {order.note && (
                 <div className="text-[9px] font-bold border p-1 mt-2 text-center">
-                    NOTE: {order.note}
+                    NOTE ORDER: {order.note}
                 </div>
             )}
         </div>
@@ -117,19 +139,6 @@ const AdminLiveOrders = () => {
         const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
         const unsub = onSnapshot(q, (snapshot) => {
             let list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(o => o.status !== 'completed');
-
-            if (role === 'kitchen') {
-                list = list.filter(o =>
-                    o.paymentStatus === 'paid' &&
-                    o.items.some(i => i.category === 'food')
-                );
-            } else if (role === 'barista') {
-                list = list.filter(o =>
-                    o.paymentStatus === 'paid' &&
-                    o.items.some(i => i.category === 'drink')
-                );
-            }
-
             setOrders(list);
 
             if (list.length > 0) {
@@ -169,7 +178,8 @@ const AdminLiveOrders = () => {
 
     const updateProcessStatus = async (id, nextStatus) => {
         await updateDoc(doc(db, "orders", id), { status: nextStatus });
-        toast.success(`Status update: ${nextStatus.toUpperCase()}`);
+        const label = nextStatus === 'cooking' ? 'Sedang Diproses' : nextStatus === 'ready' ? 'Siap Disajikan' : 'Selesai';
+        toast.success(`Status update: ${label}`);
     };
 
     const saveEditedOrder = async () => {
@@ -208,9 +218,9 @@ const AdminLiveOrders = () => {
                         role === 'barista' ? <Coffee className="text-orange-600" /> :
                             <BellRing className="text-orange-600" />}
 
-                    {role === 'kitchen' ? 'Antrian Dapur' :
-                        role === 'barista' ? 'Antrian Bar' :
-                            'Pesanan Masuk (Admin)'}
+                    {role === 'kitchen' ? 'Antrian Makanan (Kitchen)' :
+                        role === 'barista' ? 'Antrian Minuman (Barista)' :
+                            'Monitor Pesanan Pusat'}
                 </h1>
                 <div className="relative w-full md:w-auto">
                     <Search className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -224,10 +234,15 @@ const AdminLiveOrders = () => {
                     const isRejected = order.status === 'payment_rejected';
                     const isQris = order.paymentMethod === 'QRIS Transfer';
 
-                    const displayItems = role === 'kitchen' ? order.items.filter(i => i.category === 'food') :
-                        role === 'barista' ? order.items.filter(i => i.category === 'drink') :
-                            order.items;
+                    // --- LOGIKA PEMISAHAN ITEM ---
+                    let displayItems = order.items;
+                    if (role === 'kitchen') {
+                        displayItems = order.items.filter(i => !isDrinkCategory(i.category));
+                    } else if (role === 'barista') {
+                        displayItems = order.items.filter(i => isDrinkCategory(i.category));
+                    }
 
+                    // Jika Kitchen/Barista tidak punya item yang relevan di order ini, jangan tampilkan kartunya
                     if ((role === 'kitchen' || role === 'barista') && displayItems.length === 0) return null;
 
                     return (
@@ -257,8 +272,9 @@ const AdminLiveOrders = () => {
 
                             <div className="space-y-1 mb-4 text-sm border-t border-b py-2 border-dashed bg-white/50 p-2 rounded">
                                 {displayItems.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between">
-                                        <span><b>{item.qty}x</b> {item.name}</span>
+                                    <div key={idx} className="flex justify-between items-start">
+                                        <span className="font-medium"><b>{item.qty}x</b> {item.name}</span>
+                                        {item.note && <span className="text-[10px] text-red-500 italic ml-2">({item.note})</span>}
                                     </div>
                                 ))}
                             </div>
@@ -294,18 +310,20 @@ const AdminLiveOrders = () => {
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     {order.status === 'queue' && (
                                         <button onClick={() => updateProcessStatus(order.id, 'cooking')} className="col-span-2 bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 shadow-lg">
-                                            <ChefHat size={20} /> MULAI PROSES
+                                            {role === 'kitchen' ? <ChefHat size={20} /> : <Coffee size={20} />}
+                                            {role === 'kitchen' ? 'MULAI MASAK' : 'MULAI RACIK'}
                                         </button>
                                     )}
 
                                     {order.status === 'cooking' && (
                                         <button onClick={() => updateProcessStatus(order.id, 'ready')} className="col-span-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 shadow-lg">
-                                            <CheckCircle size={20} /> SIAP SAJI
+                                            <CheckCircle size={20} />
+                                            {role === 'kitchen' ? 'MAKANAN SIAP' : 'MINUMAN SIAP'}
                                         </button>
                                     )}
 
                                     <button onClick={() => { setPreviewOrder(order); setAutoPrintOrder(order); }} className="col-span-2 bg-gray-100 text-gray-700 py-2 rounded border border-gray-300 text-xs font-bold flex justify-center items-center gap-2">
-                                        <Printer size={14} /> Cetak Struk
+                                        <Printer size={14} /> Cetak Struk {role === 'kitchen' ? 'Dapur' : 'Bar'}
                                     </button>
                                 </div>
                             )}

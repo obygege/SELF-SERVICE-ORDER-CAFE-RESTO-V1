@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Lock, Mail, User, UtensilsCrossed, Navigation, ChefHat, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, User, Navigation, ScanLine, QrCode, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const LoginUser = () => {
@@ -16,6 +16,7 @@ const LoginUser = () => {
     const [isAllowed, setIsAllowed] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('loading');
     const [distance, setDistance] = useState(null);
+    const [hasTable, setHasTable] = useState(false);
 
     const { loginEmail, registerEmail, loginGoogle } = useAuth();
     const navigate = useNavigate();
@@ -23,6 +24,17 @@ const LoginUser = () => {
     const tableParam = searchParams.get('table');
 
     useEffect(() => {
+        const savedTable = localStorage.getItem('activeTable');
+
+        if (tableParam) {
+            localStorage.setItem('activeTable', tableParam);
+            setHasTable(true);
+        } else if (savedTable) {
+            setHasTable(true);
+        } else {
+            setHasTable(false);
+        }
+
         const fetchConfig = async () => {
             try {
                 const docRef = doc(db, "settings", "location");
@@ -39,7 +51,7 @@ const LoginUser = () => {
             }
         };
         fetchConfig();
-    }, []);
+    }, [tableParam]);
 
     const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
         const R = 6371;
@@ -94,11 +106,7 @@ const LoginUser = () => {
     }, [storeConfig]);
 
     const handleSuccessRedirect = () => {
-        if (tableParam) {
-            navigate(`/?table=${tableParam}`);
-        } else {
-            navigate('/');
-        }
+        navigate('/');
     };
 
     const handleSubmit = async (e) => {
@@ -157,20 +165,67 @@ const LoginUser = () => {
         }
     };
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-orange-500 to-orange-400 rounded-b-[50px] z-0"></div>
+    if (!hasTable) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center relative overflow-hidden font-sans">
+                <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-orange-300 rounded-full blur-[100px] opacity-30 animate-pulse"></div>
+                <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-red-300 rounded-full blur-[100px] opacity-30 animate-pulse"></div>
 
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md z-10 overflow-hidden relative">
+                <div className="bg-white/80 backdrop-blur-xl border border-white shadow-2xl p-8 rounded-3xl max-w-sm w-full relative z-10">
+                    <div className="w-20 h-20 bg-gradient-to-tr from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-orange-200">
+                        <QrCode className="text-white w-10 h-10" />
+                    </div>
+
+                    <h1 className="text-2xl font-bold text-gray-800 mb-2">Scan QR Meja</h1>
+                    <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+                        Untuk melakukan pemesanan, silakan scan <b>QR Code</b> yang berada di meja Anda menggunakan kamera HP.
+                    </p>
+
+                    <div className="space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="bg-white p-2 rounded-full border border-gray-200 shadow-sm">
+                                <Smartphone className="text-orange-500 w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-gray-800 text-xs font-bold">Langkah 1</p>
+                                <p className="text-gray-400 text-[10px]">Buka Kamera / App QR Scanner</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="bg-white p-2 rounded-full border border-gray-200 shadow-sm">
+                                <ScanLine className="text-orange-500 w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-gray-800 text-xs font-bold">Langkah 2</p>
+                                <p className="text-gray-400 text-[10px]">Arahkan ke QR Code di Meja</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 relative overflow-hidden font-sans">
+            <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-orange-500 to-orange-400 rounded-b-[50px] z-0 shadow-lg"></div>
+
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md z-10 overflow-hidden relative border border-gray-100">
                 <div className="p-8 pb-4 text-center">
-                    <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-                        <UtensilsCrossed />
+                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-orange-50 shadow-md p-2">
+                        <img
+                            src="/assets/logo.png"
+                            alt="Logo"
+                            className="w-full h-full object-contain"
+                            onError={(e) => e.target.style.display = 'none'}
+                        />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800">
                         {isRegister ? 'Buat Akun Baru' : 'Selamat Datang'}
                     </h2>
                     <p className="text-gray-500 text-sm mt-1 mb-2">
-                        Wajib berada di lokasi cafe untuk login.
+                        Silakan login untuk mulai memesan.
                     </p>
 
                     <div className="flex flex-col items-center justify-center gap-1 mb-4">
@@ -191,7 +246,7 @@ const LoginUser = () => {
                 <div className="px-8 pb-8">
                     <button
                         onClick={handleGoogle}
-                        className={`w-full border border-gray-300 py-2.5 rounded-lg flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 hover:bg-gray-50 active:scale-95`}
+                        className={`w-full border border-gray-300 bg-white py-2.5 rounded-xl flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 hover:bg-gray-50 hover:shadow-sm active:scale-95`}
                     >
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
                         {isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google'}
@@ -199,26 +254,26 @@ const LoginUser = () => {
 
                     <div className="relative mb-6">
                         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase text-gray-400 font-bold tracking-wider"><span className="bg-white px-2">Atau via Email</span></div>
+                        <div className="relative flex justify-center text-xs uppercase text-gray-400 font-bold tracking-wider"><span className="bg-white px-3">Atau via Email</span></div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isRegister && (
-                            <div className="relative">
-                                <User className="absolute left-3 top-3 text-gray-400" size={18} />
-                                <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} disabled={!isAllowed} />
+                            <div className="relative group">
+                                <User className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+                                <input type="text" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} disabled={!isAllowed} />
                             </div>
                         )}
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input type="email" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isAllowed} />
+                        <div className="relative group">
+                            <Mail className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+                            <input type="email" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isAllowed} />
                         </div>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={!isAllowed} />
+                        <div className="relative group">
+                            <Lock className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+                            <input type="password" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={!isAllowed} />
                         </div>
 
-                        <button type="submit" className={`w-full bg-orange-600 text-white py-3 rounded-lg font-bold transition shadow-lg shadow-orange-200 flex justify-center items-center gap-2 ${!isAllowed ? 'opacity-50 cursor-not-allowed shadow-none' : 'hover:bg-orange-700 active:scale-95'}`} disabled={!isAllowed}>
+                        <button type="submit" className={`w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-orange-200 flex justify-center items-center gap-2 ${!isAllowed ? 'opacity-50 cursor-not-allowed shadow-none grayscale' : 'hover:from-orange-500 hover:to-red-500 active:scale-95'}`} disabled={!isAllowed}>
                             {isRegister ? 'Daftar Sekarang' : 'Masuk Aplikasi'}
                         </button>
                     </form>
@@ -228,20 +283,6 @@ const LoginUser = () => {
                         <button onClick={() => setIsRegister(!isRegister)} className="text-orange-600 font-bold hover:underline">
                             {isRegister ? 'Login disini' : 'Daftar disini'}
                         </button>
-                    </div>
-
-                    <div className="mt-8 pt-4 border-t text-center">
-                        <p className="text-xs text-gray-400 mb-3 font-bold uppercase tracking-wider">Area Khusus Staff</p>
-                        <div className="grid grid-cols-2 gap-3">
-                            <Link to="/kitchen-login" className="flex flex-col items-center justify-center p-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl transition border border-green-200 group">
-                                <ChefHat size={20} className="mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[10px] font-bold">Kitchen / Barista</span>
-                            </Link>
-                            <Link to="/staff-login" className="flex flex-col items-center justify-center p-3 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl transition border border-slate-200 group">
-                                <ShieldCheck size={20} className="mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[10px] font-bold">Admin / Owner</span>
-                            </Link>
-                        </div>
                     </div>
                 </div>
             </div>
