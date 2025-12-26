@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { ArrowLeft, Plus, Minus, CreditCard, MapPin, Loader2, Navigation, AlertTriangle, X, Upload, Download, Image as ImageIcon, User, AlertCircle, Armchair, Lock, QrCode, ScanLine } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -18,9 +18,7 @@ const CartPage = () => {
     const [orderNote, setOrderNote] = useState('');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isCheckingTable, setIsCheckingTable] = useState(false);
     const [showQrisModal, setShowQrisModal] = useState(false);
-    const [showTableOccupiedModal, setShowTableOccupiedModal] = useState(false);
 
     const [uniqueCode, setUniqueCode] = useState(0);
     const [proofImage, setProofImage] = useState(null);
@@ -107,27 +105,7 @@ const CartPage = () => {
         }
     };
 
-    const checkTableAvailability = async (tableNumber) => {
-        try {
-            const q = query(
-                collection(db, "orders"),
-                where("tableNumber", "==", tableNumber),
-                where("status", "in", ["pending", "cooking", "ready"])
-            );
-            const snapshot = await getDocs(q);
-
-            const activeOrdersFromOthers = snapshot.docs.filter(doc => {
-                const data = doc.data();
-                return data.userId !== currentUser.uid;
-            });
-
-            return activeOrdersFromOthers.length > 0;
-        } catch (error) {
-            return false;
-        }
-    };
-
-    const handlePreCheck = async () => {
+    const handlePreCheck = () => {
         if (subTotal <= 0) return;
         if (!customerName.trim()) { toast.error("Mohon isi Nama Anda"); return; }
 
@@ -141,22 +119,7 @@ const CartPage = () => {
             return;
         }
 
-        setIsCheckingTable(true);
-        try {
-            const isOccupiedByOthers = await checkTableAvailability(scannedTable);
-            setIsCheckingTable(false);
-
-            if (isOccupiedByOthers) {
-                setShowTableOccupiedModal(true);
-                return;
-            }
-
-            setShowQrisModal(true);
-
-        } catch (error) {
-            setIsCheckingTable(false);
-            toast.error("Gagal mengecek status meja");
-        }
+        setShowQrisModal(true);
     };
 
     const submitToFirebase = async () => {
@@ -319,29 +282,14 @@ const CartPage = () => {
                 </div>
                 <button
                     onClick={handlePreCheck}
-                    disabled={isSubmitting || checkingLoc || !isLocationValid || isCheckingTable}
+                    disabled={isSubmitting || checkingLoc || !isLocationValid}
                     className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl flex justify-center items-center gap-3 transition-all active:scale-95
-                        ${(isSubmitting || checkingLoc || isCheckingTable) ? 'bg-slate-300 cursor-wait' : !isLocationValid ? 'bg-red-500 text-white' : !scannedTable ? 'bg-slate-300 text-slate-500' : 'bg-orange-600 text-white hover:bg-orange-700'}
+                        ${(isSubmitting || checkingLoc) ? 'bg-slate-300 cursor-wait' : !isLocationValid ? 'bg-red-500 text-white' : !scannedTable ? 'bg-slate-300 text-slate-500' : 'bg-orange-600 text-white hover:bg-orange-700'}
                     `}
                 >
-                    {isSubmitting || isCheckingTable ? <><Loader2 className="animate-spin" size={20} /> Memproses...</> : 'Proses Pembayaran'}
+                    {isSubmitting ? <><Loader2 className="animate-spin" size={20} /> Memproses...</> : 'Proses Pembayaran'}
                 </button>
             </div>
-
-            {showTableOccupiedModal && (
-                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-6 backdrop-blur-sm">
-                    <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 text-center shadow-2xl border border-white">
-                        <div className="bg-red-50 p-6 rounded-3xl w-20 h-20 flex items-center justify-center mx-auto mb-6">
-                            <Armchair size={40} className="text-red-500" />
-                        </div>
-                        <h3 className="font-black text-xl text-slate-900 mb-3 uppercase tracking-tighter">Meja Terisi</h3>
-                        <p className="text-xs font-bold text-slate-500 mb-8 leading-relaxed uppercase tracking-wide">
-                            Maaf, Meja <span className="text-red-600 font-black">{scannedTable}</span> sedang digunakan. Silakan pindah meja dan scan kembali.
-                        </p>
-                        <button onClick={() => setShowTableOccupiedModal(false)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest">OK, Mengerti</button>
-                    </div>
-                </div>
-            )}
 
             {showQrisModal && (
                 <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
