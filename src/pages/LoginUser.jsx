@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Lock, Mail, User, Navigation, ScanLine, QrCode, Smartphone } from 'lucide-react';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { Lock, Mail, User, Navigation, ScanLine, QrCode, Smartphone, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const LoginUser = () => {
@@ -11,12 +11,14 @@ const LoginUser = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
 
     const [storeConfig, setStoreConfig] = useState(null);
     const [isAllowed, setIsAllowed] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('loading');
     const [distance, setDistance] = useState(null);
     const [hasTable, setHasTable] = useState(false);
+    const [checkingLoc, setCheckingLoc] = useState(false);
 
     const { loginEmail, registerEmail, loginGoogle } = useAuth();
     const navigate = useNavigate();
@@ -41,6 +43,7 @@ const LoginUser = () => {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     setStoreConfig(docSnap.data());
+                    checkUserLocation(docSnap.data());
                 } else {
                     setGpsStatus('allowed');
                     setIsAllowed(true);
@@ -62,6 +65,29 @@ const LoginUser = () => {
             Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
+    };
+
+    const checkUserLocation = (config) => {
+        if (!config || !config.latitude) { setIsAllowed(true); return; }
+        setCheckingLoc(true);
+        if (!navigator.geolocation) { setCheckingLoc(false); return; }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const dist = getDistanceFromLatLonInKm(pos.coords.latitude, pos.coords.longitude, config.latitude, config.longitude);
+                setDistance(dist);
+                const max = config.radiusKM || 0.1;
+                if (dist <= max) {
+                    setIsAllowed(true);
+                    setGpsStatus('allowed');
+                } else {
+                    setIsAllowed(false);
+                    setGpsStatus('denied');
+                }
+                setCheckingLoc(false);
+            },
+            () => { setCheckingLoc(false); setIsAllowed(false); setGpsStatus('error'); },
+            { enableHighAccuracy: true }
+        );
     };
 
     useEffect(() => {
@@ -120,12 +146,18 @@ const LoginUser = () => {
                     uid: res.user.uid,
                     name: name,
                     email: email,
+                    phoneNumber: phoneNumber,
                     role: 'user',
                     createdAt: new Date()
                 });
                 toast.success("Akun berhasil dibuat!");
             } else {
-                await loginEmail(email, password);
+                const res = await loginEmail(email, password);
+                if (phoneNumber) {
+                    await updateDoc(doc(db, "users", res.user.uid), {
+                        phoneNumber: phoneNumber
+                    });
+                }
                 toast.success("Berhasil Masuk!");
             }
             handleSuccessRedirect();
@@ -178,7 +210,7 @@ const LoginUser = () => {
 
                     <h1 className="text-2xl font-bold text-gray-800 mb-2">Scan QR Meja</h1>
                     <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-                        Untuk melakukan pemesanan, silakan scan <b>QR Code</b> yang berada di meja Anda menggunakan kamera HP.
+                        Untuk melakukan pemesanan, silakan scan <b>QR Code</b> yang tertempel di meja Anda menggunakan kamera HP.
                     </p>
 
                     <div className="space-y-4">
@@ -234,10 +266,10 @@ const LoginUser = () => {
                                 'bg-gray-100 text-gray-500 border-gray-200'
                             }`}>
                             <Navigation size={12} />
-                            {gpsStatus === 'loading' && "Mencari Lokasi..."}
-                            {gpsStatus === 'allowed' && "Lokasi Valid - Silakan Masuk"}
-                            {gpsStatus === 'denied' && "Lokasi Kejauhan"}
-                            {gpsStatus === 'error' && "GPS Error / Mati"}
+                            {checkingLoc ? "Mencari Lokasi..." :
+                                gpsStatus === 'allowed' ? "Lokasi Valid - Silakan Masuk" :
+                                    gpsStatus === 'denied' ? "Lokasi Kejauhan" :
+                                        "GPS Error / Mati"}
                         </span>
                         {distance !== null && <span className="text-[10px] text-gray-400">Jarak: {(distance * 1000).toFixed(0)}m</span>}
                     </div>
@@ -264,6 +296,20 @@ const LoginUser = () => {
                                 <input type="text" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} disabled={!isAllowed} />
                             </div>
                         )}
+
+                        <div className="relative group">
+                            <Phone className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+                            <input
+                                type="tel"
+                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white"
+                                placeholder={isRegister ? "No. HP / WhatsApp (Wajib)" : "No. HP / WhatsApp (Opsional)"}
+                                required={isRegister}
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                disabled={!isAllowed}
+                            />
+                        </div>
+
                         <div className="relative group">
                             <Mail className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
                             <input type="email" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isAllowed} />

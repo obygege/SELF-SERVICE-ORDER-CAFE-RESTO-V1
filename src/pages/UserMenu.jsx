@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { ShoppingCart, LogOut, History, Plus, Minus } from 'lucide-react';
+import { ShoppingCart, LogOut, History, Plus, Minus, QrCode, ScanLine, Smartphone } from 'lucide-react';
 
 const UserMenu = () => {
     const { currentUser, logout } = useAuth();
@@ -15,16 +15,20 @@ const UserMenu = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
 
+    // AMBIL DATA MEJA DARI URL ATAU STORAGE
     const urlTable = searchParams.get('table');
     const savedTable = localStorage.getItem('activeTable');
-    const rawTableNumber = urlTable || savedTable || "1";
-    const displayTable = rawTableNumber.toString().replace(/Meja\s*/i, "").replace(/No\.?\s*/i, "").trim();
+
+    // HAPUS DEFAULT "1". JIKA KOSONG YA NULL.
+    const activeTable = urlTable || savedTable;
+    const displayTable = activeTable ? activeTable.toString().replace(/Meja\s*/i, "").replace(/No\.?\s*/i, "").trim() : "";
 
     useEffect(() => {
         if (urlTable) {
             localStorage.setItem('activeTable', urlTable);
         } else if (savedTable) {
-            setSearchParams({ table: savedTable }, { replace: true });
+            // Opsional: Sync URL dengan storage jika perlu
+            // setSearchParams({ table: savedTable }, { replace: true });
         }
     }, [urlTable, savedTable, setSearchParams]);
 
@@ -48,6 +52,50 @@ const UserMenu = () => {
         await logout();
     };
 
+    // --- TAMPILAN JIKA BELUM SCAN QR ---
+    if (!activeTable) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center relative overflow-hidden font-sans">
+                <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-orange-300 rounded-full blur-[100px] opacity-30 animate-pulse"></div>
+                <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-red-300 rounded-full blur-[100px] opacity-30 animate-pulse"></div>
+
+                <div className="bg-white/80 backdrop-blur-xl border border-white shadow-2xl p-8 rounded-3xl max-w-sm w-full relative z-10">
+                    <div className="w-20 h-20 bg-gradient-to-tr from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-orange-200">
+                        <QrCode className="text-white w-10 h-10" />
+                    </div>
+
+                    <h1 className="text-2xl font-bold text-gray-800 mb-2">Scan QR Meja</h1>
+                    <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+                        Anda belum terhubung ke meja. Silakan scan <b>QR Code</b> yang berada di meja untuk melihat menu dan memesan.
+                    </p>
+
+                    <div className="space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="bg-white p-2 rounded-full border border-gray-200 shadow-sm">
+                                <Smartphone className="text-orange-500 w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-gray-800 text-xs font-bold">Langkah 1</p>
+                                <p className="text-gray-400 text-[10px]">Buka Kamera / App QR Scanner</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="bg-white p-2 rounded-full border border-gray-200 shadow-sm">
+                                <ScanLine className="text-orange-500 w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-gray-800 text-xs font-bold">Langkah 2</p>
+                                <p className="text-gray-400 text-[10px]">Arahkan ke QR Code di Meja</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // --- TAMPILAN MENU UTAMA ---
     return (
         <div className="min-h-screen bg-gray-50 font-sans flex flex-col relative">
             <header className="bg-white sticky top-0 z-20 shadow-sm border-b px-4 py-3 flex justify-between items-center">
@@ -56,7 +104,7 @@ const UserMenu = () => {
                         <img src="/assets/logo.png" alt="Logo" className="w-8 h-8 object-contain" onError={(e) => e.target.src = 'https://cdn-icons-png.flaticon.com/512/3448/3448609.png'} />
                     </div>
                     <div>
-                        <h1 className="font-bold text-gray-800 leading-tight text-sm">Taki Coffee & Eatery</h1>
+                        <h1 className="font-bold text-gray-800 leading-tight text-sm">Cafe Futura</h1>
                         <p className="text-xs text-gray-500">Meja {displayTable} • {currentUser?.displayName?.split(' ')[0] || 'Guest'}</p>
                     </div>
                 </div>
