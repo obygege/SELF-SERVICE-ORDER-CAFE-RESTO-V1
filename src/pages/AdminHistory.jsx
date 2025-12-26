@@ -6,49 +6,63 @@ import { useReactToPrint } from 'react-to-print';
 import { History, Search, Trash2, CheckCircle, XCircle, Eye, X, Receipt, User, Calendar, ChefHat, Banknote, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// --- KOMPONEN STRUK (HIDDEN) ---
-const ReceiptComponent = React.forwardRef(({ order }, ref) => {
+const ReceiptComponent = React.forwardRef(({ order, adminName }, ref) => {
     if (!order) return null;
     const isPaid = order.paymentStatus === 'paid';
     const dateObj = order.createdAt ? new Date(order.createdAt.seconds * 1000) : new Date();
 
-    const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'long' });
-    const dateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const fullDateTime = dateObj.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 
     return (
         <div ref={ref} className="bg-white text-black font-mono p-2 mx-auto" style={{ width: '58mm', padding: '10px 5px', margin: '0', fontSize: '10px', color: '#000' }}>
             <style type="text/css" media="print">
                 {`
-                   @page { size: 58mm auto; margin: 0; }
-                   body { margin: 0; padding: 0; font-family: monospace; }
-                   .no-print { display: none !important; }
+                    @page { size: 58mm auto; margin: 0; }
+                    body { margin: 0; padding: 0; font-family: monospace; }
+                    .no-print { display: none !important; }
                 `}
             </style>
 
-            <div className="text-center mb-2">
-                <img src="/logo.png" alt="LOGO" style={{ height: '40px', margin: '0 auto 5px auto', filter: 'grayscale(100%)' }} onError={(e) => e.target.style.display = 'none'} />
-                <h2 className="font-extrabold text-lg uppercase leading-none mb-1">CAFE FUTURA</h2>
-                <p className="text-[9px]">Jl. Teknologi No. 88, Palembang</p>
-                <p className="text-[9px]">0812-3456-7890</p>
+            <div className="text-center flex flex-col items-center">
+                <img
+                    src="/assets/logo.png"
+                    alt="LOGO"
+                    style={{ height: '45px', width: '45px', objectFit: 'contain', marginBottom: '8px', filter: 'grayscale(100%)' }}
+                    onError={(e) => e.target.style.display = 'none'}
+                />
+                <h2 className="font-extrabold text-[12px] uppercase leading-tight mb-2">TAKI COFFEE & EATERY</h2>
+
+                <div className="text-[7px] leading-relaxed uppercase mb-2 border-t border-black pt-2 w-full">
+                    <p>Jl. Taman Kenten, Duku, Kec. Ilir Tim. II</p>
+                    <p>Palembang, Sumatera Selatan 30114</p>
+                    <p>Email: takicoffee@gmail.com</p>
+                    <p>Telp/WA: 0812-7156-2248</p>
+                </div>
+
+                <p className="text-[8px] uppercase border-y border-black border-dashed py-1 w-full">{fullDateTime}</p>
             </div>
 
-            <div className="border-b-2 border-dashed border-black my-2"></div>
-
-            <div className="space-y-0.5 text-[9px]">
+            <div className="mt-2 space-y-1 text-[9px]">
+                <div className="flex justify-between"><span>Admin:</span><span className="font-bold uppercase">{adminName || 'Staff'}</span></div>
+                <div className="flex justify-between"><span>Pelanggan:</span><span className="font-bold uppercase">{order.customerName?.substring(0, 15)}</span></div>
                 <div className="flex justify-between"><span>No. Trx:</span><span>{order.orderId}</span></div>
-                <div className="flex justify-between"><span>Waktu:</span><span className="text-right">{dayName}, {timeStr}<br />{dateStr}</span></div>
-                <div className="flex justify-between mt-1"><span>Pelanggan:</span><span className="font-bold">{order.customerName?.substring(0, 15)}</span></div>
-                <div className="flex justify-between"><span>Meja:</span><span className="font-bold text-[11px]">MEJA {order.tableNumber}</span></div>
+                <div className="flex justify-between mt-1 pt-1 border-t border-black border-dotted"><span>Meja:</span><span className="font-extrabold text-[12px]">MEJA {order.tableNumber}</span></div>
             </div>
 
-            <div className="border-b-2 border-dashed border-black my-2"></div>
+            <div className="border-b border-black my-2"></div>
 
             <div className="flex flex-col gap-1 text-[9px]">
                 {order.items?.map((item, i) => (
-                    <div key={i} className="flex flex-col">
-                        <div className="font-bold">{item.name}</div>
-                        <div className="flex justify-between pl-2">
+                    <div key={i} className="flex flex-col mb-1">
+                        <div className="font-bold uppercase">{item.name}</div>
+                        <div className="flex justify-between pl-2 italic">
                             <span>{item.qty} x {item.price.toLocaleString('id-ID')}</span>
                             <span>{(item.price * item.qty).toLocaleString('id-ID')}</span>
                         </div>
@@ -56,28 +70,23 @@ const ReceiptComponent = React.forwardRef(({ order }, ref) => {
                 ))}
             </div>
 
-            <div className="border-b-2 border-dashed border-black my-2"></div>
+            <div className="border-b border-black my-2"></div>
 
             <div className="space-y-0.5 font-bold text-[10px]">
                 <div className="flex justify-between"><span>Subtotal</span><span>{order.subTotal?.toLocaleString('id-ID')}</span></div>
                 {order.uniqueCode > 0 && (
                     <div className="flex justify-between text-[9px]"><span>Kode Unik</span><span>{order.uniqueCode}</span></div>
                 )}
-                <div className="flex justify-between text-sm mt-1 pt-1 border-t border-black"><span>TOTAL</span><span>Rp {order.total?.toLocaleString('id-ID')}</span></div>
+                <div className="flex justify-between text-sm mt-1 pt-1 border-t-2 border-black"><span>TOTAL</span><span>Rp {order.total?.toLocaleString('id-ID')}</span></div>
             </div>
 
-            <div className="text-center mt-2 text-[9px] font-bold">
-                METODE BAYAR: {order.paymentMethod === 'QRIS Transfer' ? 'TRANSFER / QRIS' : 'TUNAI'}
+            <div className="text-center mt-3 text-[10px] font-bold border border-black p-1 uppercase">
+                {isPaid ? 'Lunas / Paid' : 'Belum Bayar'}
             </div>
 
-            <div className="text-center mt-4 text-xs font-bold border-2 border-black p-1 rounded">
-                {isPaid ? 'LUNAS' : 'BELUM BAYAR'}
-            </div>
-
-            <div className="text-center mt-4 text-[9px]">
-                <p>Terima kasih sudah berkunjung!</p>
-                <p className="mt-1">Wifi: FuturaGuest / 123456</p>
-                <p className="mt-2 text-[8px] italic">*** COPY RECEIPT ***</p>
+            <div className="text-center mt-4 text-[8px] uppercase italic border-t border-black border-dotted pt-2">
+                <p>Terima kasih telah berkunjung</p>
+                <p className="font-bold mt-1">Taki Coffee & Eatery</p>
             </div>
         </div>
     );
@@ -86,6 +95,7 @@ const ReceiptComponent = React.forwardRef(({ order }, ref) => {
 const AdminHistory = () => {
     const { currentUser } = useAuth();
     const role = currentUser?.role;
+    const adminName = currentUser?.displayName || 'Admin';
 
     const [orders, setOrders] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -101,34 +111,24 @@ const AdminHistory = () => {
     });
 
     useEffect(() => {
-        let q;
         const startOfDay = new Date(filterDate);
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(filterDate);
         endOfDay.setHours(23, 59, 59, 999);
 
-        if (role === 'admin') {
-            q = query(
-                collection(db, "orders"),
-                where("createdAt", ">=", startOfDay),
-                where("createdAt", "<=", endOfDay),
-                orderBy("createdAt", "desc")
-            );
-        } else {
-            q = query(
-                collection(db, "orders"),
-                where("createdAt", ">=", startOfDay),
-                where("createdAt", "<=", endOfDay),
-                orderBy("createdAt", "desc")
-            );
-        }
+        const q = query(
+            collection(db, "orders"),
+            where("createdAt", ">=", startOfDay),
+            where("createdAt", "<=", endOfDay),
+            orderBy("createdAt", "desc")
+        );
 
         const unsub = onSnapshot(q, (snapshot) => {
             const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setOrders(list);
         });
         return () => unsub();
-    }, [filterDate, role]);
+    }, [filterDate]);
 
     const handleDelete = async (e, id) => {
         if (e) e.stopPropagation();
@@ -148,12 +148,11 @@ const AdminHistory = () => {
         if (window.confirm("Konfirmasi pembayaran ini LUNAS?")) {
             try {
                 await updateDoc(doc(db, "orders", id), {
-                    paymentStatus: 'paid',
-                    status: 'cooking'
+                    paymentStatus: 'paid'
                 });
                 toast.success("Status diupdate: LUNAS");
                 if (selectedOrder?.id === id) {
-                    setSelectedOrder(prev => ({ ...prev, paymentStatus: 'paid', status: 'cooking' }));
+                    setSelectedOrder(prev => ({ ...prev, paymentStatus: 'paid' }));
                 }
             } catch (error) {
                 toast.error("Gagal update status");
@@ -163,9 +162,8 @@ const AdminHistory = () => {
 
     return (
         <div>
-            {/* HIDDEN RECEIPT FOR PRINTING */}
             <div style={{ display: 'none' }}>
-                <ReceiptComponent ref={componentRef} order={selectedOrder} />
+                <ReceiptComponent ref={componentRef} order={selectedOrder} adminName={adminName} />
             </div>
 
             <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
@@ -189,7 +187,7 @@ const AdminHistory = () => {
                             <th className="p-4">Total</th>
                             <th className="p-4">Bukti</th>
                             <th className="p-4">Status</th>
-                            {(role === 'head') && <th className="p-4 text-center">Aksi</th>}
+                            {role === 'head' && <th className="p-4 text-center">Aksi</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -226,7 +224,7 @@ const AdminHistory = () => {
                                         </button>
                                     }
                                 </td>
-                                {(role === 'head') && (
+                                {role === 'head' && (
                                     <td className="p-4 text-center">
                                         <button onClick={(e) => handleDelete(e, order.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={18} /></button>
                                     </td>
@@ -258,16 +256,12 @@ const AdminHistory = () => {
                                     <span className="font-bold text-gray-800 flex items-center gap-1"><User size={14} /> {selectedOrder.customerName || 'Guest'}</span>
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded-xl">
-                                    <span className="text-xs text-gray-500 block mb-1">Waktu Order</span>
-                                    <span className="font-bold text-gray-800 text-sm">{selectedOrder.createdAt ? new Date(selectedOrder.createdAt.seconds * 1000).toLocaleString('id-ID') : '-'}</span>
-                                </div>
-                                <div className="bg-gray-50 p-3 rounded-xl">
                                     <span className="text-xs text-gray-500 block mb-1">Nomor Meja</span>
                                     <span className="font-bold text-gray-800 text-lg">{selectedOrder.tableNumber}</span>
                                 </div>
-                                <div className="bg-gray-50 p-3 rounded-xl">
-                                    <span className="text-xs text-gray-500 block mb-1">Metode Bayar</span>
-                                    <span className="font-bold text-gray-800">{selectedOrder.paymentMethod}</span>
+                                <div className="bg-gray-50 p-3 rounded-xl col-span-2">
+                                    <span className="text-xs text-gray-500 block mb-1">Admin / Kasir</span>
+                                    <span className="font-bold text-gray-800 uppercase tracking-tight">{adminName}</span>
                                 </div>
                             </div>
 
@@ -318,8 +312,6 @@ const AdminHistory = () => {
                         </div>
 
                         <div className="p-4 border-t bg-gray-50 flex flex-col gap-3 shrink-0">
-
-                            {/* TOMBOL CETAK NOTA (BARU) */}
                             <button
                                 onClick={handlePrint}
                                 className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
