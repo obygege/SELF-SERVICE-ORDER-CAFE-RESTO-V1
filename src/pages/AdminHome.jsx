@@ -132,7 +132,7 @@ const AdminHome = () => {
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <span className="px-3 py-1 bg-orange-500/20 border border-orange-500/30 text-orange-300 text-xs font-bold rounded-full uppercase tracking-wider">
-                                Administrator Panel
+                                Kasir/Admin Panel
                             </span>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-extrabold mb-2">

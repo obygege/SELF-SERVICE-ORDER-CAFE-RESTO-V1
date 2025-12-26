@@ -70,7 +70,7 @@ const LoginStaff = () => {
                     <div className="w-16 h-16 bg-gradient-to-tr from-orange-500 to-red-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/30">
                         <ShieldCheck className="text-white" size={32} />
                     </div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Portal Staff</h1>
+                    <h1 className="text-2xl font-bold text-white tracking-tight">LOGIN ADMIN</h1>
                     <p className="text-slate-400 text-sm mt-1">Admin & Kepala Toko</p>
                 </div>
 
@@ -79,7 +79,7 @@ const LoginStaff = () => {
                         <Mail className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={18} />
                         <input
                             type="email"
-                            placeholder="Email Staff"
+                            placeholder="Email"
                             className="w-full bg-slate-800/50 border border-slate-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-500"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
@@ -102,7 +102,7 @@ const LoginStaff = () => {
                         disabled={loading}
                         className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
                     >
-                        {loading ? <Loader2 className="animate-spin" /> : "Masuk System"}
+                        {loading ? <Loader2 className="animate-spin" /> : "LOGIN"}
                     </button>
                 </form>
 

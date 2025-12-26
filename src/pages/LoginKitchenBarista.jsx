@@ -70,8 +70,8 @@ const LoginKitchenBarista = () => {
                             <ShieldCheck size={40} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black tracking-tighter uppercase">Staff Portal</h1>
-                            <p className="text-orange-100 text-[10px] font-bold tracking-widest mt-1 uppercase">Kitchen & Barista Access Only</p>
+                            <h1 className="text-2xl font-black tracking-tighter uppercase">LOGIN KITCHEN & BARISTA</h1>
+                            <p className="text-orange-100 text-[10px] font-bold tracking-widest mt-1 uppercase">AKSES KHUSUS BARISTA DAN KITCHEN</p>
                         </div>
                     </div>
                 </div>
@@ -79,14 +79,14 @@ const LoginKitchenBarista = () => {
                 <div className="p-10">
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div>
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Email Operasional</label>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Email</label>
                             <div className="relative group">
                                 <Mail className="absolute left-4 top-4 text-gray-400 group-focus-within:text-orange-600 transition-colors" size={20} />
                                 <input
                                     type="email"
                                     required
                                     className="w-full bg-gray-50 border-2 border-gray-50 rounded-2xl px-12 py-4 font-bold text-slate-700 outline-none focus:bg-white focus:border-orange-500 transition-all shadow-sm"
-                                    placeholder="nama@futura.com"
+                                    placeholder="nama@gmail.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                 />
@@ -119,7 +119,7 @@ const LoginKitchenBarista = () => {
 
                     <div className="mt-8 text-center">
                         <Link to="/login" className="text-xs text-slate-400 hover:text-orange-600 transition font-black uppercase tracking-tighter">
-                            ← Kembali ke Login Pelanggan
+                            ← Kembali ke Login Customer
                         </Link>
                     </div>
                 </div>

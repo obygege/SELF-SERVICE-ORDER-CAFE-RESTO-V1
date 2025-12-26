@@ -80,7 +80,7 @@ const AdminReports = () => {
         const doc = new jsPDF();
 
         doc.setFontSize(18);
-        doc.text("Laporan Keuangan Harian - Cafe Futura", 14, 20);
+        doc.text("Laporan Keuangan Harian - Taki Coffee & Eatery", 14, 20);
 
         doc.setFontSize(10);
         doc.text(`Tanggal: ${new Date(selectedDate).toLocaleDateString('id-ID', { dateStyle: 'full' })}`, 14, 28);
@@ -138,7 +138,7 @@ const AdminReports = () => {
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <TrendingUp className="text-green-600" /> Laporan Harian
+                    <TrendingUp className="text-green-600" /> Laporan Keuangan & Transaksi
                 </h1>
                 <button onClick={downloadPDF} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg transition">
                     <FileText size={18} /> Download PDF (Filtered)

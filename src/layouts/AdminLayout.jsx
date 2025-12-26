@@ -40,7 +40,7 @@ const AdminLayout = () => {
             case 'head': return 'Dashboard Kepala Toko';
             case 'kitchen': return 'Dapur Area';
             case 'barista': return 'Bar Area';
-            case 'admin': return 'Control Panel';
+            case 'admin': return 'Kasir Panel';
             default: return 'Dashboard';
         }
     };

@@ -197,6 +197,7 @@ const CartPage = () => {
             }
 
             clearCart();
+            setShowQrisModal(false);
             toast.success("Pesanan Berhasil Terkirim!");
             navigate('/history');
         } catch (error) {
@@ -219,46 +220,57 @@ const CartPage = () => {
     if (subTotal === 0) return <div className="p-10 text-center">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-36">
+        <div className="min-h-screen bg-gray-50 pb-36 font-sans">
             <header className="bg-white p-4 shadow-sm sticky top-0 z-10 flex items-center gap-4">
                 <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft size={24} /></button>
-                <h1 className="font-bold text-lg">Checkout</h1>
+                <h1 className="font-black text-lg uppercase tracking-tight">Checkout</h1>
             </header>
 
             <div className="p-4 space-y-4">
-                <div className={`border p-4 rounded-xl flex items-start gap-3 ${checkingLoc ? 'bg-blue-50 text-blue-700' : isLocationValid ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`border p-4 rounded-2xl flex items-start gap-3 ${checkingLoc ? 'bg-blue-50 text-blue-700' : isLocationValid ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                     <div className="mt-1 shrink-0">{checkingLoc ? <Loader2 className="animate-spin" /> : isLocationValid ? <Navigation /> : <AlertTriangle />}</div>
                     <div className="flex-1">
-                        <p className="font-bold text-sm">{checkingLoc ? "Cek Lokasi..." : isLocationValid ? "Lokasi Valid (Dalam Jangkauan)" : "Lokasi Invalid (Terlalu Jauh)"}</p>
+                        <p className="font-bold text-sm uppercase tracking-wider">{checkingLoc ? "Cek Lokasi..." : isLocationValid ? "Lokasi Valid (Dine-In)" : "Lokasi Terlalu Jauh"}</p>
                     </div>
                 </div>
 
-                {Object.values(cart).map(item => (
-                    <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm flex gap-4">
-                        <img src={item.image} className="w-16 h-16 object-cover rounded-lg bg-gray-200" alt="" />
-                        <div className="flex-1">
-                            <h3 className="font-bold text-gray-800">{item.name}</h3>
-                            <p className="text-orange-600 font-bold">Rp {item.price.toLocaleString()}</p>
-                            <div className="flex items-center gap-3 mt-2">
-                                <button onClick={() => decreaseQty(item.id)} className="bg-gray-100 p-1 rounded"><Minus size={14} /></button>
-                                <span className="text-sm font-bold">{item.qty}</span>
-                                <button onClick={() => addToCart(item)} className="bg-gray-100 p-1 rounded"><Plus size={14} /></button>
-                            </div>
-                        </div>
+                <div className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
+                    <div className="p-6 border-b border-gray-100 bg-slate-900 text-white">
+                        <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                            Daftar Pesanan
+                        </h3>
                     </div>
-                ))}
+                    <div className="divide-y divide-gray-50">
+                        {Object.values(cart).map(item => (
+                            <div key={item.id} className="p-4 flex gap-4 items-center">
+                                <img src={item.image} className="w-20 h-20 object-cover rounded-2xl bg-gray-100 border border-gray-100" alt="" />
+                                <div className="flex-1">
+                                    <h3 className="font-black text-slate-800 text-sm uppercase leading-tight mb-1">{item.name}</h3>
+                                    <p className="text-orange-600 font-black text-xs">Rp {item.price.toLocaleString()}</p>
+                                    <div className="flex items-center gap-4 mt-3">
+                                        <div className="flex items-center gap-3 bg-gray-100 rounded-xl p-1">
+                                            <button onClick={() => decreaseQty(item.id)} className="bg-white w-7 h-7 flex items-center justify-center rounded-lg shadow-sm"><Minus size={14} /></button>
+                                            <span className="text-xs font-black w-4 text-center">{item.qty}</span>
+                                            <button onClick={() => addToCart(item)} className="bg-white w-7 h-7 flex items-center justify-center rounded-lg shadow-sm"><Plus size={14} /></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
-                    <h3 className="font-bold text-sm text-gray-500 uppercase border-b pb-2">Data Pemesan</h3>
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm border space-y-5">
+                    <h3 className="font-black text-xs text-slate-400 uppercase tracking-[0.2em] mb-2">Informasi Meja</h3>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Nama Pemesan <span className="text-red-500">*</span></label>
-                        <div className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-gray-50 focus-within:bg-white focus-within:border-orange-500 transition">
+                        <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 mb-1">Nama Pemesan</label>
+                        <div className="flex items-center gap-3 border-2 border-gray-50 rounded-2xl px-4 py-3 bg-gray-50 focus-within:bg-white focus-within:border-orange-500 transition-all">
                             <User size={18} className="text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Masukkan Nama Anda"
-                                className="w-full bg-transparent outline-none font-bold text-gray-800"
+                                placeholder="Siapa nama Anda?"
+                                className="w-full bg-transparent outline-none font-bold text-slate-800"
                                 value={customerName}
                                 onChange={(e) => setCustomerName(e.target.value)}
                             />
@@ -266,138 +278,114 @@ const CartPage = () => {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Nomor Meja <span className="text-red-500">* (Wajib Scan)</span></label>
-                        <div className={`flex items-center gap-2 border rounded-xl px-3 py-2 transition ${scannedTable ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-200'}`}>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 mb-1">Status Meja</label>
+                        <div className={`flex items-center gap-3 border-2 rounded-2xl px-4 py-3 transition-all ${scannedTable ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
                             {scannedTable ? <QrCode size={18} className="text-green-600" /> : <ScanLine size={18} className="text-red-400 animate-pulse" />}
                             <input
                                 type="text"
-                                placeholder="Belum Scan QR Code"
-                                className={`w-full bg-transparent outline-none font-bold ${scannedTable ? 'text-green-800' : 'text-red-800'}`}
-                                value={scannedTable || ''}
+                                placeholder="Belum Scan QR"
+                                className={`w-full bg-transparent outline-none font-black uppercase text-xs ${scannedTable ? 'text-green-800' : 'text-red-800'}`}
+                                value={scannedTable ? `MEJA NO: ${scannedTable}` : ''}
                                 readOnly
-                                disabled
                             />
-                            <Lock size={14} className={scannedTable ? "text-green-600" : "text-red-400"} />
+                            {scannedTable && <Lock size={14} className="text-green-600" />}
                         </div>
-                        {!scannedTable ? (
-                            <p className="text-[10px] text-red-500 mt-1 font-bold flex items-center gap-1">
-                                <AlertCircle size={10} /> Anda belum Scan QR Code di meja.
-                            </p>
-                        ) : (
-                            <p className="text-[10px] text-green-600 mt-1 font-bold flex items-center gap-1">
-                                <QrCode size={10} /> Meja terverifikasi.
-                            </p>
-                        )}
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Catatan Tambahan</label>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 mb-1">Catatan</label>
                         <textarea
-                            placeholder="Contoh: Jangan terlalu pedas, es dipisah..."
-                            className="w-full border rounded-xl px-3 py-2 bg-gray-50 outline-none text-sm"
+                            placeholder="Contoh: Es dipisah, kurangi gula..."
+                            className="w-full border-2 border-gray-50 rounded-2xl px-4 py-3 bg-gray-50 outline-none text-xs font-bold"
                             rows={2}
                             value={orderNote}
                             onChange={(e) => setOrderNote(e.target.value)}
                         ></textarea>
                     </div>
                 </div>
-
-                <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <h3 className="font-bold mb-3 text-sm text-gray-500 uppercase">Opsi Penyajian</h3>
-                    <div className="p-3 border border-orange-500 bg-orange-50 rounded-xl flex items-center gap-3">
-                        <MapPin size={24} className="text-orange-600" />
-                        <div>
-                            <span className="text-sm font-bold block text-orange-800">Diantar ke Meja</span>
-                            <span className="text-[10px] text-orange-600">Pesanan akan diantar waiter ke meja Anda.</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <h3 className="font-bold mb-3 text-sm text-gray-500 uppercase">Metode Pembayaran</h3>
-                    <div className="p-3 border border-blue-500 bg-blue-50 rounded-xl flex items-center gap-3">
-                        <CreditCard size={24} className="text-blue-600" />
-                        <div>
-                            <span className="text-sm font-bold block text-blue-800">QRIS (Cashless Only)</span>
-                            <span className="text-[10px] text-blue-600">Scan QRIS & Upload Bukti Transfer.</span>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            <div className="fixed bottom-0 w-full bg-white border-t p-4 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <div className="flex justify-between mb-3 font-bold text-lg">
-                    <span>Total</span>
-                    <span>Rp {totalWithCode.toLocaleString()}</span>
+            <div className="fixed bottom-0 w-full bg-white border-t rounded-t-[2.5rem] p-6 z-20 shadow-2xl">
+                <div className="flex justify-between items-end mb-6">
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Pembayaran</p>
+                        <h2 className="font-black text-2xl text-slate-900 tracking-tighter">Rp {totalWithCode.toLocaleString()}</h2>
+                    </div>
+                    <div className="text-right">
+                        <span className="text-[9px] font-black bg-orange-100 text-orange-600 px-3 py-1 rounded-full uppercase tracking-widest">
+                            {Object.values(cart).length} Items
+                        </span>
+                    </div>
                 </div>
                 <button
                     onClick={handlePreCheck}
                     disabled={isSubmitting || checkingLoc || !isLocationValid || isCheckingTable}
-                    className={`w-full py-4 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 text-white transition-all
-                        ${(isSubmitting || checkingLoc || isCheckingTable) ? 'bg-gray-400 cursor-wait' : !isLocationValid ? 'bg-red-400' : !scannedTable ? 'bg-gray-400' : 'bg-slate-900 hover:bg-slate-800'}
+                    className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl flex justify-center items-center gap-3 transition-all active:scale-95
+                        ${(isSubmitting || checkingLoc || isCheckingTable) ? 'bg-slate-300 cursor-wait' : !isLocationValid ? 'bg-red-500 text-white' : !scannedTable ? 'bg-slate-300 text-slate-500' : 'bg-orange-600 text-white hover:bg-orange-700'}
                     `}
                 >
-                    {isSubmitting || isCheckingTable ? <><Loader2 className="animate-spin" /> Memproses...</> : 'Buat Pesanan'}
+                    {isSubmitting || isCheckingTable ? <><Loader2 className="animate-spin" size={20} /> Memproses...</> : 'Proses Pembayaran'}
                 </button>
             </div>
 
             {showTableOccupiedModal && (
                 <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-6 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl">
-                        <div className="bg-red-100 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                            <Armchair size={32} className="text-red-600" />
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 text-center shadow-2xl border border-white">
+                        <div className="bg-red-50 p-6 rounded-3xl w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                            <Armchair size={40} className="text-red-500" />
                         </div>
-                        <h3 className="font-bold text-lg text-gray-800 mb-2">Meja Sedang Terisi</h3>
-                        <p className="text-sm text-gray-600 mb-6">
-                            Maaf, <b>Meja {scannedTable}</b> sudah memiliki pesanan aktif dari orang lain.
-                            <br /><br />
-                            Silakan pindah ke meja lain yang kosong dan Scan QR Code di meja tersebut.
+                        <h3 className="font-black text-xl text-slate-900 mb-3 uppercase tracking-tighter">Meja Terisi</h3>
+                        <p className="text-xs font-bold text-slate-500 mb-8 leading-relaxed uppercase tracking-wide">
+                            Maaf, Meja <span className="text-red-600 font-black">{scannedTable}</span> sedang digunakan. Silakan pindah meja dan scan kembali.
                         </p>
-                        <button onClick={() => setShowTableOccupiedModal(false)} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700">Baik, Saya Pindah Meja</button>
+                        <button onClick={() => setShowTableOccupiedModal(false)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest">OK, Mengerti</button>
                     </div>
                 </div>
             )}
 
             {showQrisModal && (
-                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6 flex flex-col items-center max-h-[95vh] overflow-y-auto">
-                        <div className="w-full flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">Pembayaran QRIS</h3>
-                            <button onClick={() => setShowQrisModal(false)}><X className="text-gray-500" /></button>
+                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[3rem] w-full max-w-md p-8 flex flex-col items-center max-h-[90vh] overflow-y-auto relative">
+                        <div className="w-full flex justify-between items-center mb-6">
+                            <h3 className="font-black uppercase tracking-widest text-xs text-slate-400">Scan QRIS Pembayaran</h3>
+                            <button onClick={() => setShowQrisModal(false)} className="p-2 bg-gray-50 rounded-full"><X size={20} className="text-slate-400" /></button>
                         </div>
-                        <div className="relative group w-full flex justify-center mb-4">
-                            <div className="bg-white p-2 border-2 border-orange-500 rounded-xl shadow-lg">
-                                <img src="/assets/qris.png" alt="QRIS CODE" className="h-64 object-contain" onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=QRIS+IMAGE'} />
+
+                        <div className="relative group w-full flex justify-center mb-8">
+                            <div className="bg-white p-3 border-4 border-slate-900 rounded-[2rem] shadow-2xl">
+                                <img src="/assets/qris.png" alt="QRIS" className="h-64 w-64 object-contain" onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=QRIS+EMPTY'} />
                             </div>
-                            <button onClick={downloadQris} className="absolute bottom-4 right-1/2 translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg hover:bg-slate-700">
+                            <button onClick={downloadQris} className="absolute -bottom-4 bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl">
                                 <Download size={14} /> Simpan QRIS
                             </button>
                         </div>
-                        <div className="text-center w-full mb-4 bg-orange-50 p-4 rounded-xl border border-orange-200">
-                            <p className="text-sm text-gray-600 mb-1 font-bold">TOTAL TRANSFER:</p>
-                            <div className="text-4xl font-black text-orange-600 tracking-tight">Rp {totalWithCode.toLocaleString('id-ID')}</div>
-                            <div className="mt-2 text-xs bg-white p-2 rounded border border-orange-100 text-orange-800">Kode Unik: <b>{uniqueCode}</b> (Sudah termasuk)</div>
+
+                        <div className="text-center w-full mb-8 bg-orange-50 p-6 rounded-[2rem] border border-orange-100">
+                            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Transfer Persis :</p>
+                            <div className="text-4xl font-black text-slate-900 tracking-tighter">Rp {totalWithCode.toLocaleString()}</div>
+                            <div className="mt-2 text-[10px] font-bold text-orange-600">Terima kasih atas pesanannya!</div>
                         </div>
-                        <div className="w-full mb-6 text-left">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Upload Bukti Transfer <span className="text-red-500">*</span></label>
-                            <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 text-center hover:bg-gray-100 transition cursor-pointer">
+
+                        <div className="w-full mb-8">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-2">Bukti Bayar (Screenshot)</label>
+                            <div className="relative border-2 border-dashed border-slate-200 rounded-3xl p-6 bg-slate-50 text-center hover:bg-slate-100 transition-all cursor-pointer">
                                 <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                 {previewUrl ? (
                                     <div className="relative">
-                                        <img src={previewUrl} alt="Preview" className="h-32 mx-auto rounded object-contain" />
-                                        <div className="text-xs text-green-600 font-bold mt-2 flex items-center justify-center gap-1"><ImageIcon size={12} /> Foto Siap Upload</div>
+                                        <img src={previewUrl} alt="Preview" className="h-40 mx-auto rounded-2xl object-contain shadow-md" />
+                                        <div className="text-[10px] text-green-600 font-black mt-3 uppercase tracking-widest flex items-center justify-center gap-1">Siap Dikirim</div>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-center text-gray-400">
+                                    <div className="flex flex-col items-center text-slate-400">
                                         <Upload size={32} className="mb-2" />
-                                        <span className="text-xs font-bold">Klik untuk upload foto</span>
-                                        <span className="text-[10px]">Format: JPG/PNG (Max 2MB)</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Pilih Gambar</span>
                                     </div>
                                 )}
                             </div>
                         </div>
-                        <button onClick={submitToFirebase} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2">
-                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Konfirmasi Pembayaran"}
+
+                        <button onClick={submitToFirebase} disabled={isSubmitting} className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-orange-200 flex items-center justify-center gap-3">
+                            {isSubmitting ? <Loader2 className="animate-spin" size={24} /> : "Konfirmasi & Kirim"}
                         </button>
                     </div>
                 </div>
