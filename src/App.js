@@ -24,12 +24,13 @@ import KitchenDisplay from './pages/KitchenDisplay';
 import BaristaDisplay from './pages/BaristaDisplay';
 import HeadHistory from './pages/HeadHistory';
 import HeadDatabase from './pages/HeadDatabase';
+import HeadAddStaff from './pages/HeadAddStaff';
 
 const PrivateRoute = ({ children, allowedRoles }) => {
   const { currentUser, userRole, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center font-bold">Loading...</div>;
 
   if (!currentUser) {
     if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/head')) {
@@ -58,7 +59,7 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <Router>
-          <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+          <Toaster position="top-center" toastOptions={{ duration: 3000, fontStyle: 'bold' }} />
           <Routes>
             <Route path="/setup-toko" element={<SetupPage />} />
             <Route path="/login" element={<LoginUser />} />
@@ -82,20 +83,15 @@ function App() {
             <Route path="/head" element={<PrivateRoute allowedRoles={['head', 'admin']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<AdminReports />} />
               <Route path="history" element={<HeadHistory />} />
+              <Route path="database" element={<HeadDatabase />} />
+              <Route path="add-staff" element={<HeadAddStaff />} />
             </Route>
 
             <Route path="/kitchen" element={<PrivateRoute allowedRoles={['kitchen', 'head', 'admin']}><KitchenDisplay /></PrivateRoute>} />
-
             <Route path="/barista" element={<PrivateRoute allowedRoles={['barista', 'head', 'admin']}><BaristaDisplay /></PrivateRoute>} />
 
             <Route path="/profile" element={<PrivateRoute allowedRoles={['admin', 'head', 'user', 'kitchen', 'barista']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<UserProfile />} />
-            </Route>
-
-            <Route path="/head" element={<PrivateRoute allowedRoles={['head', 'admin']}><AdminLayout /></PrivateRoute>}>
-              <Route index element={<AdminReports />} />
-              <Route path="history" element={<HeadHistory />} />
-              <Route path="database" element={<HeadDatabase />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" />} />

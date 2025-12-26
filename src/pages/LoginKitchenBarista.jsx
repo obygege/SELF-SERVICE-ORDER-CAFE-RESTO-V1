@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ChefHat, Coffee, Loader2, Lock, Mail } from 'lucide-react';
+import { ChefHat, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
 
 const LoginKitchenBarista = () => {
     const [email, setEmail] = useState('');
@@ -16,111 +16,112 @@ const LoginKitchenBarista = () => {
         setLoading(true);
 
         try {
-            // 1. Login ke Firebase
-            const res = await signInWithEmailAndPassword(auth, email, password);
+            const res = await signInWithEmailAndPassword(auth, email.trim(), password);
             const user = res.user;
 
-            // 2. Cek Data di Firestore
             const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef);
 
-            let role = 'user';
-
-            // 3. Logika Deteksi Role
             if (docSnap.exists()) {
-                role = docSnap.data().role || 'user';
-            } else {
-                // Auto-Assign Role jika belum ada di database
-                const lowerEmail = email.toLowerCase();
-                if (lowerEmail.includes('kitchen') || lowerEmail.includes('dapur')) role = 'kitchen';
-                else if (lowerEmail.includes('barista') || lowerEmail.includes('bar')) role = 'barista';
+                const userData = docSnap.data();
+                const role = userData.role;
 
-                if (role !== 'user') {
-                    await setDoc(docRef, {
-                        email: email,
-                        role: role,
-                        uid: user.uid,
-                        createdAt: new Date()
-                    }, { merge: true });
+                if (role === 'kitchen') {
+                    toast.success("Akses Dapur Diberikan");
+                    window.location.href = "/kitchen";
+                } else if (role === 'barista') {
+                    toast.success("Akses Barista Diberikan");
+                    window.location.href = "/barista";
+                } else if (role === 'admin' || role === 'head') {
+                    toast.success("Akses Management");
+                    window.location.href = "/admin/live-orders";
+                } else {
+                    toast.error("Role Anda (" + role + ") tidak diizinkan masuk ke area operasional.");
+                    await auth.signOut();
                 }
-            }
-
-            // 4. Redirect sesuai Role (Pakai window.location agar refresh total)
-            if (role === 'kitchen') {
-                toast.success("Login Dapur Berhasil");
-                window.location.href = "/kitchen";
-            } else if (role === 'barista') {
-                toast.success("Login Barista Berhasil");
-                window.location.href = "/barista";
             } else {
-                toast.error("Akses Ditolak: Bukan akun Operasional (Kitchen/Barista).");
-                await auth.signOut(); // Logout paksa jika salah role
-                setLoading(false);
+                toast.error("Profil tidak ditemukan di Database. Pastikan Role sudah diinput di Firestore!");
+                await auth.signOut();
             }
 
         } catch (error) {
             console.error(error);
-            toast.error("Login Gagal: Periksa Email/Password");
+            if (error.code === 'auth/wrong-password') {
+                toast.error("Password salah!");
+            } else if (error.code === 'auth/user-not-found') {
+                toast.error("Email staff tidak terdaftar!");
+            } else {
+                toast.error("Gagal Masuk: " + error.message);
+            }
+        } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 relative overflow-hidden">
-            {/* Background Effects */}
-            <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-green-600 rounded-full blur-[100px] opacity-20"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-600 rounded-full blur-[100px] opacity-20"></div>
-
-            <div className="bg-white/10 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-2xl w-full max-w-sm relative z-10">
-                <div className="text-center mb-8">
-                    <div className="flex justify-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30">
-                            <ChefHat className="text-white" size={24} />
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+            <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100">
+                <div className="bg-orange-600 p-10 text-white text-center relative overflow-hidden">
+                    <div className="absolute -top-4 -right-4 opacity-10 rotate-12">
+                        <ChefHat size={160} />
+                    </div>
+                    <div className="relative z-10 flex flex-col items-center gap-4">
+                        <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/30 shadow-xl">
+                            <ShieldCheck size={40} className="text-white" />
                         </div>
-                        <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center shadow-lg shadow-yellow-500/30">
-                            <Coffee className="text-white" size={24} />
+                        <div>
+                            <h1 className="text-3xl font-black tracking-tighter uppercase">Staff Portal</h1>
+                            <p className="text-orange-100 text-[10px] font-bold tracking-widest mt-1 uppercase">Kitchen & Barista Access Only</p>
                         </div>
                     </div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Operasional</h1>
-                    <p className="text-slate-400 text-sm mt-1">Area Khusus Kitchen & Barista</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="relative group">
-                        <Mail className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-green-400 transition-colors" size={18} />
-                        <input
-                            type="email"
-                            placeholder="Email Operasional"
-                            className="w-full bg-slate-800/50 border border-slate-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all placeholder:text-slate-500"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="relative group">
-                        <Lock className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-green-400 transition-colors" size={18} />
-                        <input
-                            type="password"
-                            placeholder="Password"
-                            className="w-full bg-slate-800/50 border border-slate-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all placeholder:text-slate-500"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
+                <div className="p-10">
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Email Operasional</label>
+                            <div className="relative group">
+                                <Mail className="absolute left-4 top-4 text-gray-400 group-focus-within:text-orange-600 transition-colors" size={20} />
+                                <input
+                                    type="email"
+                                    required
+                                    className="w-full bg-gray-50 border-2 border-gray-50 rounded-2xl px-12 py-4 font-bold text-slate-700 outline-none focus:bg-white focus:border-orange-500 transition-all shadow-sm"
+                                    placeholder="nama@futura.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                />
+                            </div>
+                        </div>
 
-                    <button
-                        disabled={loading}
-                        className="w-full bg-gradient-to-r from-green-600 to-yellow-600 hover:from-green-500 hover:to-yellow-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
-                    >
-                        {loading ? <Loader2 className="animate-spin" /> : "Masuk Kerja"}
-                    </button>
-                </form>
+                        <div>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Kata Sandi</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-4 text-gray-400 group-focus-within:text-orange-600 transition-colors" size={20} />
+                                <input
+                                    type="password"
+                                    required
+                                    className="w-full bg-gray-50 border-2 border-gray-50 rounded-2xl px-12 py-4 font-bold text-slate-700 outline-none focus:bg-white focus:border-orange-500 transition-all shadow-sm"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                            </div>
+                        </div>
 
-                <div className="mt-8 pt-6 border-t border-white/10 text-center">
-                    <Link to="/login" className="text-xs text-slate-400 hover:text-white transition font-medium">
-                        ← Kembali ke Login Pelanggan
-                    </Link>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-200 transition-all active:scale-95 flex items-center justify-center gap-3 mt-4"
+                        >
+                            {loading ? <Loader2 className="animate-spin" size={24} /> : "MASUK KERJA"}
+                        </button>
+                    </form>
+
+                    <div className="mt-8 text-center">
+                        <Link to="/login" className="text-xs text-slate-400 hover:text-orange-600 transition font-black uppercase tracking-tighter">
+                            ← Kembali ke Login Pelanggan
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

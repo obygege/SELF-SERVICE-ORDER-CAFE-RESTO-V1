@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Database, Download, Table, Package, Users, Search, Loader2, Trash2, Edit, X, Check, AlertCircle } from 'lucide-react';
+import { Database, Download, Table, Package, Users, Search, Loader2, Trash2, Edit, X, Check, AlertCircle, Phone, Mail } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 
@@ -142,8 +142,9 @@ const HeadDatabase = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-gray-100 sticky top-0 z-10">
                                     <tr>
-                                        <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Informasi</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Detail Tambahan</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Informasi Utama</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Kontak / Identitas</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Detail Status</th>
                                         <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase text-center">Aksi</th>
                                     </tr>
                                 </thead>
@@ -151,14 +152,41 @@ const HeadDatabase = () => {
                                     {filteredData.map((item) => (
                                         <tr key={item.id} className="hover:bg-gray-50 transition">
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-800">{item.name || item.orderId || item.id}</div>
-                                                <div className="text-xs text-gray-400 truncate max-w-xs">{item.email || item.category || `Meja: ${item.tableNumber}`}</div>
+                                                <div className="font-bold text-slate-800 uppercase tracking-tight">
+                                                    {item.name || item.orderId || item.id.substring(0, 8)}
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 font-mono mt-1">ID: {item.id}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-sm font-medium text-gray-600">
-                                                    {activeTab === 'users' && (item.role || 'user')}
+                                                {activeTab === 'users' ? (
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
+                                                            <Mail size={12} className="text-gray-400" /> {item.email || '-'}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
+                                                            <Phone size={12} className="text-gray-400" /> {item.phoneNumber || '-'}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-gray-500 italic">
+                                                        {item.category || `Meja: ${item.tableNumber || '-'}`}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-sm font-bold text-gray-700">
+                                                    {activeTab === 'users' && (
+                                                        <span className="px-3 py-1 bg-slate-100 rounded-full text-[10px] uppercase">
+                                                            {item.role || 'user'}
+                                                        </span>
+                                                    )}
                                                     {activeTab === 'products' && `Rp ${item.price?.toLocaleString()}`}
-                                                    {activeTab === 'orders' && `Rp ${item.total?.toLocaleString()} - ${item.status}`}
+                                                    {activeTab === 'orders' && (
+                                                        <div className="flex flex-col gap-1">
+                                                            <span>Rp {item.total?.toLocaleString()}</span>
+                                                            <span className="text-[10px] uppercase font-black text-blue-500">{item.status}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -184,7 +212,7 @@ const HeadDatabase = () => {
                             <button type="button" onClick={() => setEditModal(null)}><X size={24} /></button>
                         </div>
                         <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto">
-                            {Object.keys(editModal).filter(key => !['id', 'createdAt', 'lastLogin', 'proofImage', 'items', 'uid'].includes(key)).map(key => (
+                            {Object.keys(editModal).filter(key => !['id', 'createdAt', 'lastLogin', 'proofImage', 'items', 'uid', 'fcmToken'].includes(key)).map(key => (
                                 <div key={key}>
                                     <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">{key}</label>
                                     <input

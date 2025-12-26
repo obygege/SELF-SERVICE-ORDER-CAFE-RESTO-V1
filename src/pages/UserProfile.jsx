@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db, auth as firebaseAuth } from '../firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { updateProfile, verifyBeforeUpdateEmail, reload } from 'firebase/auth';
-import { User, Mail, Shield, Lock, Save, Loader2, Phone, AlertTriangle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { updateProfile, updateEmail, reload } from 'firebase/auth';
+import { User, Mail, Shield, Lock, Save, Loader2, Phone, AlertTriangle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const UserProfile = () => {
     const { currentUser, changePassword, userRole } = useAuth();
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
-    const [emailSent, setEmailSent] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -63,10 +62,19 @@ const UserProfile = () => {
             const user = firebaseAuth.currentUser;
             const firestoreUpdates = {};
 
-            if (formData.email && formData.email !== user.email) {
-                await verifyBeforeUpdateEmail(user, formData.email);
-                setEmailSent(true);
-                toast.success("Link verifikasi dikirim ke " + formData.email, { duration: 8000 });
+            if (formData.email && formData.email.toLowerCase() !== user.email.toLowerCase()) {
+                try {
+                    await updateEmail(user, formData.email.toLowerCase());
+                    firestoreUpdates.email = formData.email.toLowerCase();
+                } catch (emailError) {
+                    if (emailError.code === 'auth/email-already-in-use') {
+                        throw new Error("EMAIL_EXISTS");
+                    } else if (emailError.code === 'auth/requires-recent-login') {
+                        throw new Error("RE_LOGIN");
+                    } else {
+                        throw emailError;
+                    }
+                }
             }
 
             if (formData.name && formData.name !== user.displayName) {
@@ -80,12 +88,17 @@ const UserProfile = () => {
 
             if (Object.keys(firestoreUpdates).length > 0) {
                 await updateDoc(doc(db, "users", user.uid), firestoreUpdates);
-                toast.success("Data profil diperbarui");
+                toast.success("Profil berhasil diperbarui!");
+            } else {
+                toast("Tidak ada perubahan");
             }
 
         } catch (error) {
-            if (error.code === 'auth/requires-recent-login') {
-                toast.error("Sesi sensitif. Silakan Logout & Login kembali untuk ubah email.");
+            console.error(error);
+            if (error.message === 'EMAIL_EXISTS') {
+                toast.error("Email ini terdeteksi sudah terdaftar di sistem. Coba email lain.");
+            } else if (error.message === 'RE_LOGIN') {
+                toast.error("Sesi keamanan habis. Silakan Logout dan Login kembali untuk ganti email.");
             } else {
                 toast.error("Gagal: " + error.message);
             }
@@ -109,7 +122,7 @@ const UserProfile = () => {
             toast.success("Password berhasil diperbarui!");
             setPasswords({ newPass: '', confirmPass: '' });
         } catch (error) {
-            toast.error("Gagal ubah password. Sesi kadaluarsa.");
+            toast.error("Gagal ubah password. Login ulang diperlukan.");
         } finally {
             setLoading(false);
         }
@@ -124,7 +137,7 @@ const UserProfile = () => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 pb-20 p-4">
+        <div className="max-w-4xl mx-auto space-y-6 pb-10 p-4">
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
                 <div className="bg-slate-900 p-8 text-white relative">
                     <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -134,7 +147,7 @@ const UserProfile = () => {
                             </div>
                             <div>
                                 <h2 className="text-2xl font-black tracking-tight">{formData.name}</h2>
-                                <p className="text-slate-400 text-sm flex items-center gap-2 mt-1">
+                                <p className="text-slate-400 text-sm flex items-center gap-2 mt-1 lowercase italic">
                                     <Mail size={14} /> {firebaseAuth.currentUser?.email}
                                 </p>
                                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/10 text-orange-400 text-[10px] font-black uppercase tracking-widest rounded-full">
@@ -153,10 +166,10 @@ const UserProfile = () => {
 
                 <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12">
                     <section className="space-y-6">
-                        <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
-                            <User size={18} className="text-orange-600" /> Profil Pengguna
+                        <h3 className="font-black text-slate-800 text-sm uppercase flex items-center gap-2 tracking-widest">
+                            <User size={18} className="text-orange-600" /> Informasi Akun
                         </h3>
-                        <form onSubmit={handleUpdateProfile} className="space-y-4">
+                        <form onSubmit={handleUpdateProfile} className="space-y-5">
                             <div>
                                 <label className="text-[10px] font-black text-gray-400 uppercase ml-2 block mb-1">Nama Lengkap</label>
                                 <input
@@ -167,7 +180,7 @@ const UserProfile = () => {
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase ml-2 block mb-1">Email Baru</label>
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-2 block mb-1">Email Login Baru</label>
                                 <input
                                     type="email"
                                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 font-bold text-slate-800 focus:bg-white focus:border-orange-500 outline-none transition-all"
@@ -187,28 +200,28 @@ const UserProfile = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-3 hover:bg-slate-800 transition shadow-xl active:scale-95"
+                                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-slate-800 transition shadow-xl active:scale-95"
                             >
-                                {loading ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> Simpan Perubahan</>}
+                                {loading ? <Loader2 className="animate-spin" size={20} /> : "Simpan Perubahan"}
                             </button>
                         </form>
                     </section>
 
                     <section className="space-y-6">
-                        <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
-                            <Lock size={18} className="text-blue-600" /> Keamanan Akun
+                        <h3 className="font-black text-slate-800 text-sm uppercase flex items-center gap-2 tracking-widest">
+                            <Lock size={18} className="text-blue-600" /> Keamanan
                         </h3>
-                        <form onSubmit={handleChangePass} className="space-y-4">
+                        <form onSubmit={handleChangePass} className="space-y-5">
                             <input
                                 type="password"
-                                placeholder="Password Baru"
+                                placeholder="Sandi Baru"
                                 className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 font-bold focus:bg-white focus:border-blue-500 outline-none transition-all"
                                 value={passwords.newPass}
                                 onChange={e => setPasswords({ ...passwords, newPass: e.target.value })}
                             />
                             <input
                                 type="password"
-                                placeholder="Ulangi Password Baru"
+                                placeholder="Ulangi Sandi"
                                 className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 font-bold focus:bg-white focus:border-blue-500 outline-none transition-all"
                                 value={passwords.confirmPass}
                                 onChange={e => setPasswords({ ...passwords, confirmPass: e.target.value })}
@@ -216,32 +229,23 @@ const UserProfile = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-sm hover:bg-blue-700 transition shadow-xl active:scale-95"
+                                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs hover:bg-blue-700 transition shadow-xl active:scale-95"
                             >
-                                Ganti Kata Sandi
+                                Ganti Password
                             </button>
                         </form>
                     </section>
                 </div>
             </div>
 
-            {emailSent && (
-                <div className="bg-emerald-50 border-2 border-emerald-200 p-6 rounded-[2rem] flex items-center gap-5 shadow-lg shadow-emerald-100 animate-in slide-in-from-bottom duration-500">
-                    <div className="bg-emerald-500 text-white p-3 rounded-2xl"><CheckCircle2 size={24} /></div>
-                    <div>
-                        <h4 className="font-black text-emerald-900 text-sm uppercase">Verifikasi Terkirim!</h4>
-                        <p className="text-emerald-700 text-xs font-bold leading-relaxed mt-1">
-                            Email Anda tidak akan berubah sampai Anda mengklik link konfirmasi yang kami kirimkan ke inbox email baru Anda.
-                        </p>
-                    </div>
+            <div className="bg-red-50 border border-red-200 p-6 rounded-[2rem] flex items-start gap-4">
+                <AlertTriangle className="text-red-600 shrink-0" size={24} />
+                <div>
+                    <h4 className="font-black text-red-900 text-sm uppercase">Peringatan Sistem</h4>
+                    <p className="text-red-800 text-[10px] font-bold leading-relaxed mt-1">
+                        Jika Anda mendapatkan pesan "Email sudah digunakan" padahal di Firebase tidak ada, silakan **Logout** dan **Hapus Cache Browser**, lalu coba kembali. Firebase terkadang menyimpan data "Email Terpakai" sementara dalam sistem proteksi mereka.
+                    </p>
                 </div>
-            )}
-
-            <div className="bg-amber-50 border border-amber-200 p-6 rounded-[2rem] flex items-start gap-4">
-                <AlertTriangle className="text-amber-600 shrink-0" size={24} />
-                <p className="text-amber-800 text-[11px] font-bold leading-relaxed uppercase">
-                    Setelah mengklik link verifikasi di pesan email, silakan kembali ke halaman ini dan tekan tombol <b>REFRESH STATUS</b> di bagian atas untuk memperbarui data akun Anda secara otomatis.
-                </p>
             </div>
         </div>
     );

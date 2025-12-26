@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ClipboardList, History, QrCode, Settings, ChefHat, Database } from 'lucide-react';
+import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ClipboardList, History, QrCode, Settings, ChefHat, Database, UserPlus } from 'lucide-react';
 
 const AdminLayout = () => {
     const { userRole, logout } = useAuth();
@@ -101,6 +101,9 @@ const AdminLayout = () => {
                             <Link to="/head/database" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/head/database')}`}>
                                 <Database size={20} /> Database
                             </Link>
+                            <Link to="/head/add-staff" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/head/add-staff')}`}>
+                                <UserPlus size={20} /> Tambah Staff
+                            </Link>
                         </>
                     )}
 
@@ -181,14 +184,17 @@ const AdminLayout = () => {
 
                     {userRole === 'head' && (
                         <>
-                            <Link to="/head" className={`flex flex-col items-center gap-1 px-6 ${isActive('/head')}`}>
+                            <Link to="/head" className={`flex flex-col items-center gap-1 px-5 ${isActive('/head')}`}>
                                 <LayoutDashboard size={20} /> <span className="text-[9px] font-bold">Dash</span>
                             </Link>
-                            <Link to="/head/history" className={`flex flex-col items-center gap-1 px-6 ${isActive('/head/history')}`}>
+                            <Link to="/head/history" className={`flex flex-col items-center gap-1 px-5 ${isActive('/head/history')}`}>
                                 <History size={20} /> <span className="text-[9px] font-bold">Riwayat</span>
                             </Link>
-                            <Link to="/head/database" className={`flex flex-col items-center gap-1 px-6 ${isActive('/head/database')}`}>
+                            <Link to="/head/database" className={`flex flex-col items-center gap-1 px-5 ${isActive('/head/database')}`}>
                                 <Database size={20} /> <span className="text-[9px] font-bold">DB</span>
+                            </Link>
+                            <Link to="/head/add-staff" className={`flex flex-col items-center gap-1 px-5 ${isActive('/head/add-staff')}`}>
+                                <UserPlus size={20} /> <span className="text-[9px] font-bold">Staff</span>
                             </Link>
                         </>
                     )}
