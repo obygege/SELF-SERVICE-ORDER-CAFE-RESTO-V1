@@ -4,7 +4,7 @@ import { auth, db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ShieldCheck, Loader2, Lock, Mail } from 'lucide-react';
+import { ShieldCheck, Loader2, Lock, Mail, UserCog } from 'lucide-react';
 
 const LoginStaff = () => {
     const [email, setEmail] = useState('');
@@ -17,7 +17,7 @@ const LoginStaff = () => {
         setLoading(true);
 
         try {
-            const res = await signInWithEmailAndPassword(auth, email, password);
+            const res = await signInWithEmailAndPassword(auth, email.trim(), password);
             const user = res.user;
 
             const docRef = doc(db, "users", user.uid);
@@ -54,62 +54,82 @@ const LoginStaff = () => {
 
         } catch (error) {
             console.error(error);
-            toast.error("Login Gagal: Periksa Email/Password");
+            if (error.code === 'auth/wrong-password') {
+                toast.error("Password salah!");
+            } else if (error.code === 'auth/user-not-found') {
+                toast.error("Email staff tidak terdaftar!");
+            } else {
+                toast.error("Gagal Masuk: Periksa Email/Password");
+            }
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 relative overflow-hidden">
-            <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-orange-600 rounded-full blur-[100px] opacity-20"></div>
-            <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
-
-            <div className="bg-white/10 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-2xl w-full max-w-sm relative z-10">
-                <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-tr from-orange-500 to-red-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/30">
-                        <ShieldCheck className="text-white" size={32} />
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+            <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100">
+                <div className="bg-slate-900 p-10 text-white text-center relative overflow-hidden">
+                    <div className="absolute -top-4 -right-4 opacity-10 rotate-12">
+                        <UserCog size={160} />
                     </div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">LOGIN ADMIN</h1>
-                    <p className="text-slate-400 text-sm mt-1">Admin & Kepala Toko</p>
+                    <div className="relative z-10 flex flex-col items-center gap-4">
+                        <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 shadow-xl">
+                            <ShieldCheck size={40} className="text-orange-500" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">LOGIN MANAGEMENT</h1>
+                            <p className="text-slate-400 text-[10px] font-bold tracking-widest mt-2 uppercase">AKSES ADMIN & KEPALA TOKO</p>
+                        </div>
+                    </div>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="relative group">
-                        <Mail className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                        <input
-                            type="email"
-                            placeholder="Email"
-                            className="w-full bg-slate-800/50 border border-slate-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-500"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="relative group">
-                        <Lock className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                        <input
-                            type="password"
-                            placeholder="Password"
-                            className="w-full bg-slate-800/50 border border-slate-700 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-500"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
+                <div className="p-10">
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Email Management</label>
+                            <div className="relative group">
+                                <Mail className="absolute left-4 top-4 text-gray-400 group-focus-within:text-slate-900 transition-colors" size={20} />
+                                <input
+                                    type="email"
+                                    required
+                                    className="w-full bg-gray-50 border-2 border-gray-50 rounded-2xl px-12 py-4 font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-900 transition-all shadow-sm"
+                                    placeholder="admin@gmail.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                />
+                            </div>
+                        </div>
 
-                    <button
-                        disabled={loading}
-                        className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
-                    >
-                        {loading ? <Loader2 className="animate-spin" /> : "LOGIN"}
-                    </button>
-                </form>
+                        <div>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Kata Sandi</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-4 text-gray-400 group-focus-within:text-slate-900 transition-colors" size={20} />
+                                <input
+                                    type="password"
+                                    required
+                                    className="w-full bg-gray-50 border-2 border-gray-50 rounded-2xl px-12 py-4 font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-900 transition-all shadow-sm"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                            </div>
+                        </div>
 
-                <div className="mt-8 pt-6 border-t border-white/10 text-center">
-                    <Link to="/login" className="text-xs text-slate-400 hover:text-white transition font-medium">
-                        ← Login Pelanggan
-                    </Link>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-slate-900 hover:bg-black text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-3 mt-4"
+                        >
+                            {loading ? <Loader2 className="animate-spin" size={24} /> : "OTORISASI MASUK"}
+                        </button>
+                    </form>
+
+                    <div className="mt-8 text-center">
+                        <Link to="/login" className="text-xs text-slate-400 hover:text-slate-900 transition font-black uppercase tracking-tighter">
+                            ← Kembali ke Login Customer
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

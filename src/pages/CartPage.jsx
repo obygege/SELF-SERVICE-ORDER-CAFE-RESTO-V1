@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Plus, Minus, CreditCard, MapPin, Loader2, Navigation, AlertTriangle, X, Upload, Download, Image as ImageIcon, User, AlertCircle, Armchair, Lock, QrCode, ScanLine } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Loader2, Navigation, AlertTriangle, X, Upload, Download, User, Lock, QrCode, ScanLine } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CartPage = () => {
@@ -108,17 +108,14 @@ const CartPage = () => {
     const handlePreCheck = () => {
         if (subTotal <= 0) return;
         if (!customerName.trim()) { toast.error("Mohon isi Nama Anda"); return; }
-
         if (!scannedTable) {
             toast.error("Wajib Scan QR Code di atas meja!", { icon: '📷' });
             return;
         }
-
         if (!isLocationValid && storeConfig && !storeConfig.bypass) {
             toast.error("Lokasi Anda terlalu jauh dari Cafe");
             return;
         }
-
         setShowQrisModal(true);
     };
 
@@ -152,12 +149,11 @@ const CartPage = () => {
                 createdAt: serverTimestamp()
             });
 
-            for (const item of cartItems) {
+            const updateStockPromises = cartItems.map(item => {
                 const productRef = doc(db, "products", item.id);
-                await updateDoc(productRef, {
-                    stock: increment(-item.qty)
-                });
-            }
+                return updateDoc(productRef, { stock: increment(-item.qty) });
+            });
+            await Promise.all(updateStockPromises);
 
             clearCart();
             setShowQrisModal(false);
@@ -165,7 +161,7 @@ const CartPage = () => {
             navigate('/history');
         } catch (error) {
             console.error("Submit Error: ", error);
-            toast.error("Gagal mengirim pesanan. Silakan coba lagi.");
+            toast.error("Gagal mengirim pesanan.");
         } finally {
             setIsSubmitting(false);
         }
@@ -174,13 +170,13 @@ const CartPage = () => {
     const downloadQris = () => {
         const link = document.createElement('a');
         link.href = '/assets/qris.png';
-        link.download = 'QRIS-Cafe-Futura.png';
+        link.download = 'QRIS-Taki-Coffee.png';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    if (subTotal === 0) return <div className="p-10 text-center">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
+    if (subTotal === 0) return <div className="p-10 text-center font-sans">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
 
     return (
         <div className="min-h-screen bg-gray-50 pb-36 font-sans">
@@ -199,9 +195,7 @@ const CartPage = () => {
 
                 <div className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
                     <div className="p-6 border-b border-gray-100 bg-slate-900 text-white">
-                        <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                            Daftar Pesanan
-                        </h3>
+                        <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">Daftar Pesanan</h3>
                     </div>
                     <div className="divide-y divide-gray-50">
                         {Object.values(cart).map(item => (
@@ -225,7 +219,6 @@ const CartPage = () => {
 
                 <div className="bg-white p-6 rounded-[2rem] shadow-sm border space-y-5">
                     <h3 className="font-black text-xs text-slate-400 uppercase tracking-[0.2em] mb-2">Informasi Meja</h3>
-
                     <div>
                         <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 mb-1">Nama Pemesan</label>
                         <div className="flex items-center gap-3 border-2 border-gray-50 rounded-2xl px-4 py-3 bg-gray-50 focus-within:bg-white focus-within:border-orange-500 transition-all">
@@ -301,7 +294,7 @@ const CartPage = () => {
 
                         <div className="relative group w-full flex justify-center mb-8">
                             <div className="bg-white p-3 border-4 border-slate-900 rounded-[2rem] shadow-2xl">
-                                <img src="/assets/qris.png" alt="QRIS" className="h-64 w-64 object-contain" onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=QRIS+EMPTY'} />
+                                <img src="/assets/qris.png" alt="QRIS" className="h-64 w-64 object-contain" />
                             </div>
                             <button onClick={downloadQris} className="absolute -bottom-4 bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl">
                                 <Download size={14} /> Simpan QRIS
@@ -311,7 +304,6 @@ const CartPage = () => {
                         <div className="text-center w-full mb-8 bg-orange-50 p-6 rounded-[2rem] border border-orange-100">
                             <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Transfer Persis :</p>
                             <div className="text-4xl font-black text-slate-900 tracking-tighter">Rp {totalWithCode.toLocaleString()}</div>
-                            <div className="mt-2 text-[10px] font-bold text-orange-600">Terima kasih atas pesanannya!</div>
                         </div>
 
                         <div className="w-full mb-8">
