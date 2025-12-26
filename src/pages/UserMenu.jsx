@@ -104,7 +104,7 @@ const UserMenu = () => {
                         <img src="/assets/logo.png" alt="Logo" className="w-8 h-8 object-contain" onError={(e) => e.target.src = 'https://cdn-icons-png.flaticon.com/512/3448/3448609.png'} />
                     </div>
                     <div>
-                        <h1 className="font-bold text-gray-800 leading-tight text-sm">Cafe Futura</h1>
+                        <h1 className="font-bold text-gray-800 leading-tight text-sm">Taki Coffee & Eatery</h1>
                         <p className="text-xs text-gray-500">Meja {displayTable} • {currentUser?.displayName?.split(' ')[0] || 'Guest'}</p>
                     </div>
                 </div>

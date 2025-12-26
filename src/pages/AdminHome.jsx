@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import {
     TrendingUp,
     ShoppingBag,
@@ -18,6 +18,8 @@ import {
 const AdminHome = () => {
     const { currentUser } = useAuth();
     const [loading, setLoading] = useState(true);
+    const [dbStatus, setDbStatus] = useState('checking');
+    const [printerStatus, setPrinterStatus] = useState('checking');
     const [stats, setStats] = useState({
         dailyRevenue: 0,
         dailyOrders: 0,
@@ -26,6 +28,19 @@ const AdminHome = () => {
     });
 
     useEffect(() => {
+        const checkPrinter = async () => {
+            try {
+                if ('usb' in navigator) {
+                    const devices = await navigator.usb.getDevices();
+                    setPrinterStatus(devices.length > 0 ? 'online' : 'offline');
+                } else {
+                    setPrinterStatus('offline');
+                }
+            } catch {
+                setPrinterStatus('offline');
+            }
+        };
+
         const fetchDashboardData = async () => {
             try {
                 const today = new Date();
@@ -49,20 +64,20 @@ const AdminHome = () => {
                     getDocs(activeQuery)
                 ]);
 
+                setDbStatus('online');
+
                 let revenue = 0;
                 let orderCount = 0;
                 let itemFrequency = {};
 
                 todaySnap.forEach(doc => {
                     const data = doc.data();
-
                     if (data.status !== 'cancelled') {
                         orderCount++;
                         if (data.paymentStatus === 'paid' || data.status === 'completed') {
                             revenue += (data.total || 0);
                         }
                     }
-
                     if (data.status !== 'cancelled' && data.items) {
                         data.items.forEach(item => {
                             const itemName = item.name;
@@ -73,7 +88,6 @@ const AdminHome = () => {
 
                 let bestSellingItem = "Belum ada data";
                 let maxQty = 0;
-
                 Object.entries(itemFrequency).forEach(([name, qty]) => {
                     if (qty > maxQty) {
                         maxQty = qty;
@@ -89,12 +103,14 @@ const AdminHome = () => {
                 });
 
             } catch (error) {
-                console.error("Error fetching dashboard data:", error);
+                console.error("Error:", error);
+                setDbStatus('offline');
             } finally {
                 setLoading(false);
             }
         };
 
+        checkPrinter();
         fetchDashboardData();
     }, []);
 
@@ -123,7 +139,7 @@ const AdminHome = () => {
                             Halo, <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-200">{currentUser?.email?.split('@')[0]}</span>
                         </h1>
                         <p className="text-slate-400 max-w-lg">
-                            Selamat datang kembali di Cafe Futura. Berikut adalah ringkasan aktivitas toko hari ini.
+                            Selamat datang kembali di Taki Coffee. Berikut adalah ringkasan aktivitas toko hari ini.
                         </p>
                     </div>
                     <div className="flex gap-3">
@@ -256,21 +272,17 @@ const AdminHome = () => {
                     <div className="relative z-10 h-full flex flex-col justify-between">
                         <div>
                             <h3 className="text-lg font-bold mb-1 opacity-90">Status Sistem</h3>
-                            <p className="text-orange-100 text-sm">Semua sistem berjalan normal.</p>
+                            <p className="text-orange-100 text-sm">Monitor koneksi perangkat secara live.</p>
                         </div>
 
                         <div className="mt-8 space-y-4">
                             <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
                                 <span className="text-sm font-medium">Koneksi Database</span>
-                                <span className="flex h-2 w-2 rounded-full bg-green-400"></span>
+                                <span className={`flex h-3 w-3 rounded-full ${dbStatus === 'online' ? 'bg-green-400' : dbStatus === 'checking' ? 'bg-yellow-400 animate-pulse' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}></span>
                             </div>
                             <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
                                 <span className="text-sm font-medium">Printer Kasir</span>
-                                <span className="flex h-2 w-2 rounded-full bg-green-400"></span>
-                            </div>
-                            <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                                <span className="text-sm font-medium">Gateway Payment</span>
-                                <span className="flex h-2 w-2 rounded-full bg-green-400"></span>
+                                <span className={`flex h-3 w-3 rounded-full ${printerStatus === 'online' ? 'bg-green-400' : printerStatus === 'checking' ? 'bg-yellow-400 animate-pulse' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}></span>
                             </div>
                         </div>
 

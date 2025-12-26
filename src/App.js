@@ -20,6 +20,10 @@ import AdminSettings from './pages/AdminSettings';
 import UserProfile from './pages/UserProfile';
 import SetupPage from './pages/SetupPage';
 import AdminLayout from './layouts/AdminLayout';
+import KitchenDisplay from './pages/KitchenDisplay';
+import BaristaDisplay from './pages/BaristaDisplay';
+import HeadHistory from './pages/HeadHistory';
+import HeadDatabase from './pages/HeadDatabase';
 
 const PrivateRoute = ({ children, allowedRoles }) => {
   const { currentUser, userRole, loading } = useAuth();
@@ -77,18 +81,21 @@ function App() {
 
             <Route path="/head" element={<PrivateRoute allowedRoles={['head', 'admin']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<AdminReports />} />
+              <Route path="history" element={<HeadHistory />} />
             </Route>
 
-            <Route path="/kitchen" element={<PrivateRoute allowedRoles={['kitchen', 'head', 'admin']}><AdminLayout /></PrivateRoute>}>
-              <Route index element={<AdminLiveOrders />} />
-            </Route>
+            <Route path="/kitchen" element={<PrivateRoute allowedRoles={['kitchen', 'head', 'admin']}><KitchenDisplay /></PrivateRoute>} />
 
-            <Route path="/barista" element={<PrivateRoute allowedRoles={['barista', 'head', 'admin']}><AdminLayout /></PrivateRoute>}>
-              <Route index element={<AdminLiveOrders />} />
-            </Route>
+            <Route path="/barista" element={<PrivateRoute allowedRoles={['barista', 'head', 'admin']}><BaristaDisplay /></PrivateRoute>} />
 
             <Route path="/profile" element={<PrivateRoute allowedRoles={['admin', 'head', 'user', 'kitchen', 'barista']}><AdminLayout /></PrivateRoute>}>
               <Route index element={<UserProfile />} />
+            </Route>
+
+            <Route path="/head" element={<PrivateRoute allowedRoles={['head', 'admin']}><AdminLayout /></PrivateRoute>}>
+              <Route index element={<AdminReports />} />
+              <Route path="history" element={<HeadHistory />} />
+              <Route path="database" element={<HeadDatabase />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" />} />

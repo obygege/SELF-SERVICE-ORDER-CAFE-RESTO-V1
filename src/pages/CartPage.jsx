@@ -59,7 +59,9 @@ const CartPage = () => {
                     setIsLocationValid(true);
                     setStoreConfig({ bypass: true });
                 }
-            } catch (error) { setIsLocationValid(true); }
+            } catch (error) {
+                setIsLocationValid(true);
+            }
         };
         fetchConfig();
     }, [searchParams]);
@@ -106,13 +108,23 @@ const CartPage = () => {
     };
 
     const checkTableAvailability = async (tableNumber) => {
-        const q = query(
-            collection(db, "orders"),
-            where("tableNumber", "==", tableNumber),
-            where("status", "in", ["pending", "cooking", "ready", "unpaid", "payment_rejected"])
-        );
-        const snapshot = await getDocs(q);
-        return !snapshot.empty;
+        try {
+            const q = query(
+                collection(db, "orders"),
+                where("tableNumber", "==", tableNumber),
+                where("status", "in", ["pending", "cooking", "ready"])
+            );
+            const snapshot = await getDocs(q);
+
+            const activeOrdersFromOthers = snapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.userId !== currentUser.uid;
+            });
+
+            return activeOrdersFromOthers.length > 0;
+        } catch (error) {
+            return false;
+        }
     };
 
     const handlePreCheck = async () => {
@@ -120,22 +132,21 @@ const CartPage = () => {
         if (!customerName.trim()) { toast.error("Mohon isi Nama Anda"); return; }
 
         if (!scannedTable) {
-            toast.error("Wajib Scan QR Code di atas meja!", {
-                icon: '📷',
-                style: { borderRadius: '10px', background: '#333', color: '#fff' },
-                duration: 5000
-            });
+            toast.error("Wajib Scan QR Code di atas meja!", { icon: '📷' });
             return;
         }
 
-        if (!isLocationValid && storeConfig && !storeConfig.bypass) { toast.error("Lokasi Anda terlalu jauh dari Cafe"); return; }
+        if (!isLocationValid && storeConfig && !storeConfig.bypass) {
+            toast.error("Lokasi Anda terlalu jauh dari Cafe");
+            return;
+        }
 
         setIsCheckingTable(true);
         try {
-            const isOccupied = await checkTableAvailability(scannedTable);
+            const isOccupiedByOthers = await checkTableAvailability(scannedTable);
             setIsCheckingTable(false);
 
-            if (isOccupied) {
+            if (isOccupiedByOthers) {
                 setShowTableOccupiedModal(true);
                 return;
             }
@@ -145,7 +156,6 @@ const CartPage = () => {
         } catch (error) {
             setIsCheckingTable(false);
             toast.error("Gagal mengecek status meja");
-            console.error(error);
         }
     };
 
@@ -158,15 +168,17 @@ const CartPage = () => {
         setIsSubmitting(true);
         try {
             const orderId = `TRX-${Date.now().toString().slice(-8)}`;
+            const cartItems = Object.values(cart);
 
             await addDoc(collection(db, "orders"), {
                 orderId,
+                userId: currentUser?.uid || 'guest',
                 tableNumber: scannedTable,
                 customerName: customerName,
                 customerEmail: currentUser?.email || '-',
-                items: Object.values(cart),
-                subTotal,
-                uniqueCode,
+                items: cartItems,
+                subTotal: subTotal,
+                uniqueCode: uniqueCode,
                 total: totalWithCode,
                 paymentMethod: 'QRIS Transfer',
                 proofImage: proofImage,
@@ -177,16 +189,20 @@ const CartPage = () => {
                 createdAt: serverTimestamp()
             });
 
-            Object.values(cart).forEach(async (item) => {
-                await updateDoc(doc(db, "products", item.id), { stock: increment(-item.qty) });
-            });
+            for (const item of cartItems) {
+                const productRef = doc(db, "products", item.id);
+                await updateDoc(productRef, {
+                    stock: increment(-item.qty)
+                });
+            }
 
             clearCart();
-            toast.success("Pesanan Berhasil!");
+            toast.success("Pesanan Berhasil Terkirim!");
             navigate('/history');
         } catch (error) {
-            console.error(error);
-            toast.error("Gagal membuat pesanan");
+            console.error("Submit Error: ", error);
+            toast.error("Gagal mengirim pesanan. Silakan coba lagi.");
+        } finally {
             setIsSubmitting(false);
         }
     };
@@ -200,7 +216,7 @@ const CartPage = () => {
         document.body.removeChild(link);
     };
 
-    if (Object.keys(cart).length === 0) return <div className="p-10 text-center">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
+    if (subTotal === 0) return <div className="p-10 text-center">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
 
     return (
         <div className="min-h-screen bg-gray-50 pb-36">
@@ -251,29 +267,25 @@ const CartPage = () => {
 
                     <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Nomor Meja <span className="text-red-500">* (Wajib Scan)</span></label>
-
                         <div className={`flex items-center gap-2 border rounded-xl px-3 py-2 transition ${scannedTable ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-200'}`}>
                             {scannedTable ? <QrCode size={18} className="text-green-600" /> : <ScanLine size={18} className="text-red-400 animate-pulse" />}
-
                             <input
                                 type="text"
                                 placeholder="Belum Scan QR Code"
                                 className={`w-full bg-transparent outline-none font-bold ${scannedTable ? 'text-green-800' : 'text-red-800'}`}
-                                value={scannedTable ? scannedTable : ''}
+                                value={scannedTable || ''}
                                 readOnly
                                 disabled
                             />
-
                             <Lock size={14} className={scannedTable ? "text-green-600" : "text-red-400"} />
                         </div>
-
                         {!scannedTable ? (
                             <p className="text-[10px] text-red-500 mt-1 font-bold flex items-center gap-1">
                                 <AlertCircle size={10} /> Anda belum Scan QR Code di meja.
                             </p>
                         ) : (
                             <p className="text-[10px] text-green-600 mt-1 font-bold flex items-center gap-1">
-                                <QrCode size={10} /> Meja terverifikasi dari Scan QR
+                                <QrCode size={10} /> Meja terverifikasi.
                             </p>
                         )}
                     </div>
@@ -318,7 +330,6 @@ const CartPage = () => {
                     <span>Total</span>
                     <span>Rp {totalWithCode.toLocaleString()}</span>
                 </div>
-
                 <button
                     onClick={handlePreCheck}
                     disabled={isSubmitting || checkingLoc || !isLocationValid || isCheckingTable}
@@ -331,23 +342,18 @@ const CartPage = () => {
             </div>
 
             {showTableOccupiedModal && (
-                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-6 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl">
                         <div className="bg-red-100 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                             <Armchair size={32} className="text-red-600" />
                         </div>
                         <h3 className="font-bold text-lg text-gray-800 mb-2">Meja Sedang Terisi</h3>
                         <p className="text-sm text-gray-600 mb-6">
-                            Maaf, <b>Meja {scannedTable}</b> sudah memiliki pesanan aktif yang belum selesai.
+                            Maaf, <b>Meja {scannedTable}</b> sudah memiliki pesanan aktif dari orang lain.
                             <br /><br />
                             Silakan pindah ke meja lain yang kosong dan Scan QR Code di meja tersebut.
                         </p>
-                        <button
-                            onClick={() => setShowTableOccupiedModal(false)}
-                            className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700"
-                        >
-                            Baik, Saya Pindah Meja
-                        </button>
+                        <button onClick={() => setShowTableOccupiedModal(false)} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700">Baik, Saya Pindah Meja</button>
                     </div>
                 </div>
             )}
@@ -359,7 +365,6 @@ const CartPage = () => {
                             <h3 className="font-bold text-lg">Pembayaran QRIS</h3>
                             <button onClick={() => setShowQrisModal(false)}><X className="text-gray-500" /></button>
                         </div>
-
                         <div className="relative group w-full flex justify-center mb-4">
                             <div className="bg-white p-2 border-2 border-orange-500 rounded-xl shadow-lg">
                                 <img src="/assets/qris.png" alt="QRIS CODE" className="h-64 object-contain" onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=QRIS+IMAGE'} />
@@ -368,26 +373,15 @@ const CartPage = () => {
                                 <Download size={14} /> Simpan QRIS
                             </button>
                         </div>
-
                         <div className="text-center w-full mb-4 bg-orange-50 p-4 rounded-xl border border-orange-200">
                             <p className="text-sm text-gray-600 mb-1 font-bold">TOTAL TRANSFER:</p>
-                            <div className="text-4xl font-black text-orange-600 tracking-tight">
-                                Rp {totalWithCode.toLocaleString('id-ID')}
-                            </div>
-                            <div className="mt-2 text-xs bg-white p-2 rounded border border-orange-100 text-orange-800">
-                                Kode Unik: <b>{uniqueCode}</b> (Sudah termasuk)
-                            </div>
+                            <div className="text-4xl font-black text-orange-600 tracking-tight">Rp {totalWithCode.toLocaleString('id-ID')}</div>
+                            <div className="mt-2 text-xs bg-white p-2 rounded border border-orange-100 text-orange-800">Kode Unik: <b>{uniqueCode}</b> (Sudah termasuk)</div>
                         </div>
-
-                        <div className="w-full mb-6">
+                        <div className="w-full mb-6 text-left">
                             <label className="block text-sm font-bold text-gray-700 mb-2">Upload Bukti Transfer <span className="text-red-500">*</span></label>
                             <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 text-center hover:bg-gray-100 transition cursor-pointer">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleFileChange}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
+                                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                 {previewUrl ? (
                                     <div className="relative">
                                         <img src={previewUrl} alt="Preview" className="h-32 mx-auto rounded object-contain" />
@@ -402,12 +396,7 @@ const CartPage = () => {
                                 )}
                             </div>
                         </div>
-
-                        <button
-                            onClick={submitToFirebase}
-                            disabled={isSubmitting}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2"
-                        >
+                        <button onClick={submitToFirebase} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-200 flex items-center justify-center gap-2">
                             {isSubmitting ? <Loader2 className="animate-spin" /> : "Konfirmasi Pembayaran"}
                         </button>
                     </div>

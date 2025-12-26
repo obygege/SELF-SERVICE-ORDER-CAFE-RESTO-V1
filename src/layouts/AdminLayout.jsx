@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ClipboardList, History, QrCode, Settings, ChefHat } from 'lucide-react';
+import { LayoutDashboard, Coffee, FileBarChart, User, LogOut, ClipboardList, History, QrCode, Settings, ChefHat, Database } from 'lucide-react';
 
 const AdminLayout = () => {
     const { userRole, logout } = useAuth();
@@ -37,7 +37,7 @@ const AdminLayout = () => {
 
     const getPageTitle = () => {
         switch (userRole) {
-            case 'head': return 'Laporan Toko';
+            case 'head': return 'Dashboard Kepala Toko';
             case 'kitchen': return 'Dapur Area';
             case 'barista': return 'Bar Area';
             case 'admin': return 'Control Panel';
@@ -58,7 +58,7 @@ const AdminLayout = () => {
                         }}
                     />
                     <div>
-                        <h1 className="text-s font-bold tracking-tight">TAKI COFFEE & EATERY</h1>
+                        <h1 className="text-s font-bold tracking-tight">TAKI COFFEE</h1>
                         <p className="text-[10px] text-slate-400 uppercase tracking-widest">{getRoleLabel()}</p>
                     </div>
                 </div>
@@ -91,9 +91,17 @@ const AdminLayout = () => {
                     )}
 
                     {userRole === 'head' && (
-                        <Link to="/head" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/head')}`}>
-                            <FileBarChart size={20} /> Laporan Keuangan
-                        </Link>
+                        <>
+                            <Link to="/head" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/head')}`}>
+                                <LayoutDashboard size={20} /> Dashboard
+                            </Link>
+                            <Link to="/head/history" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/head/history')}`}>
+                                <History size={20} /> Riwayat Order
+                            </Link>
+                            <Link to="/head/database" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${desktopActive('/head/database')}`}>
+                                <Database size={20} /> Database
+                            </Link>
+                        </>
                     )}
 
                     {userRole === 'kitchen' && (
@@ -159,33 +167,41 @@ const AdminLayout = () => {
                             <Link to="/admin/live-orders" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/live-orders')}`}>
                                 <ClipboardList size={20} /> <span className="text-[9px] font-bold">Order</span>
                             </Link>
+                            <Link to="/admin/history" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/history')}`}>
+                                <History size={20} /> <span className="text-[9px] font-bold">Riwayat</span>
+                            </Link>
                             <Link to="/admin/products" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/products')}`}>
                                 <Coffee size={20} /> <span className="text-[9px] font-bold">Menu</span>
                             </Link>
                             <Link to="/admin/reports" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/reports')}`}>
                                 <FileBarChart size={20} /> <span className="text-[9px] font-bold">Laporan</span>
                             </Link>
-                            <Link to="/admin/settings" className={`flex flex-col items-center gap-1 px-3 ${isActive('/admin/settings')}`}>
-                                <Settings size={20} /> <span className="text-[9px] font-bold">Set</span>
-                            </Link>
                         </>
                     )}
 
                     {userRole === 'head' && (
-                        <Link to="/head" className={`flex flex-col items-center gap-1 px-6 w-full ${isActive('/head')}`}>
-                            <FileBarChart size={24} /> <span className="text-[10px] font-bold">Laporan Keuangan</span>
-                        </Link>
+                        <>
+                            <Link to="/head" className={`flex flex-col items-center gap-1 px-6 ${isActive('/head')}`}>
+                                <LayoutDashboard size={20} /> <span className="text-[9px] font-bold">Dash</span>
+                            </Link>
+                            <Link to="/head/history" className={`flex flex-col items-center gap-1 px-6 ${isActive('/head/history')}`}>
+                                <History size={20} /> <span className="text-[9px] font-bold">Riwayat</span>
+                            </Link>
+                            <Link to="/head/database" className={`flex flex-col items-center gap-1 px-6 ${isActive('/head/database')}`}>
+                                <Database size={20} /> <span className="text-[9px] font-bold">DB</span>
+                            </Link>
+                        </>
                     )}
 
                     {userRole === 'kitchen' && (
                         <Link to="/kitchen" className={`flex flex-col items-center gap-1 px-6 w-full ${isActive('/kitchen')}`}>
-                            <ChefHat size={24} /> <span className="text-[10px] font-bold">Pesanan Dapur</span>
+                            <ChefHat size={24} /> <span className="text-[10px] font-bold">Dapur</span>
                         </Link>
                     )}
 
                     {userRole === 'barista' && (
                         <Link to="/barista" className={`flex flex-col items-center gap-1 px-6 w-full ${isActive('/barista')}`}>
-                            <Coffee size={24} /> <span className="text-[10px] font-bold">Pesanan Bar</span>
+                            <Coffee size={24} /> <span className="text-[10px] font-bold">Bar</span>
                         </Link>
                     )}
 
