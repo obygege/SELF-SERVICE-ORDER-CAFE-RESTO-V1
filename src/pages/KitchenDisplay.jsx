@@ -214,7 +214,7 @@ const KitchenDisplay = () => {
                                 )}
                                 {isReady && (
                                     <div className="w-full py-5 bg-green-100 text-green-600 font-black text-xs uppercase tracking-[0.2em] rounded-2xl border-2 border-green-200 flex items-center justify-center gap-3 animate-pulse">
-                                        <Bell size={20} /> Menunggu Pickup
+                                        <Bell size={20} /> Sudah Diantar
                                     </div>
                                 )}
                                 <button
