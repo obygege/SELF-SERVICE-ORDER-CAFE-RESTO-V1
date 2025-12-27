@@ -137,9 +137,9 @@ const CartPage = () => {
                 customerName: customerName,
                 customerEmail: currentUser?.email || '-',
                 items: cartItems,
-                subTotal: subTotal,
-                uniqueCode: uniqueCode,
-                total: totalWithCode,
+                subTotal: Number(subTotal),
+                uniqueCode: Number(uniqueCode),
+                total: Number(totalWithCode),
                 paymentMethod: 'QRIS Transfer',
                 proofImage: proofImage,
                 diningOption: 'dine-in',
@@ -149,11 +149,12 @@ const CartPage = () => {
                 createdAt: serverTimestamp()
             });
 
-            const updateStockPromises = cartItems.map(item => {
+            for (const item of cartItems) {
                 const productRef = doc(db, "products", item.id);
-                return updateDoc(productRef, { stock: increment(-item.qty) });
-            });
-            await Promise.all(updateStockPromises);
+                await updateDoc(productRef, {
+                    stock: increment(-item.qty)
+                });
+            }
 
             clearCart();
             setShowQrisModal(false);
