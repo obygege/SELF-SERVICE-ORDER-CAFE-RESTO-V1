@@ -12,7 +12,6 @@ const OrderHistory = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [uploadingId, setUploadingId] = useState(null);
-
     const statusRef = useRef({});
     const isFirstRun = useRef(true);
     const audioRef = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'));
@@ -39,7 +38,7 @@ const OrderHistory = () => {
                 orderList.forEach(order => {
                     const oldStatus = statusRef.current[order.id];
                     if (oldStatus && oldStatus !== order.status) {
-                        handleStatusChangeEffect(order);
+                        handleStatusUpdate(order);
                     }
                 });
             }
@@ -54,25 +53,24 @@ const OrderHistory = () => {
             setLoading(false);
             isFirstRun.current = false;
         }, (error) => {
-            console.error("Firestore Error:", error);
+            console.error("Snapshot error:", error);
             setLoading(false);
         });
 
         return () => unsubscribe();
     }, [currentUser?.uid]);
 
-    const handleStatusChangeEffect = (order) => {
+    const handleStatusUpdate = (order) => {
         audioRef.current.play().catch(() => { });
+        let msg = "";
+        if (order.status === 'cooking') msg = `Pesanan #${order.orderId} sedang dimasak!`;
+        if (order.status === 'ready') msg = `Pesanan #${order.orderId} siap diantar!`;
+        if (order.status === 'payment_rejected') msg = `Pembayaran #${order.orderId} ditolak!`;
+        if (order.status === 'completed') msg = `Pesanan #${order.orderId} selesai.`;
 
-        let message = "";
-        if (order.status === 'cooking') message = `Pesanan #${order.orderId} sedang dimasak!`;
-        if (order.status === 'ready') message = `Pesanan #${order.orderId} siap diantar!`;
-        if (order.status === 'payment_rejected') message = `Pembayaran #${order.orderId} ditolak!`;
-        if (order.status === 'completed') message = `Pesanan #${order.orderId} selesai.`;
-
-        if (message) {
-            toast.success(message, {
-                duration: 4000,
+        if (msg) {
+            toast.success(msg, {
+                duration: 5000,
                 position: 'top-center',
                 style: { borderRadius: '12px', background: '#333', color: '#fff' }
             });
@@ -120,12 +118,14 @@ const OrderHistory = () => {
     };
 
     const getLabel = (status) => {
-        if (status === 'pending') return 'Menunggu Konfirmasi';
-        if (status === 'cooking') return 'Sedang Dimasak';
-        if (status === 'ready') return 'Siap Diantar';
-        if (status === 'completed') return 'Selesai';
-        if (status === 'payment_rejected') return 'Pembayaran Ditolak';
-        return status;
+        const labels = {
+            'pending': 'Menunggu Konfirmasi',
+            'cooking': 'Sedang Dimasak',
+            'ready': 'Siap Diantar',
+            'completed': 'Selesai',
+            'payment_rejected': 'Pembayaran Ditolak'
+        };
+        return labels[status] || status;
     };
 
     return (
@@ -141,7 +141,7 @@ const OrderHistory = () => {
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                         <Loader2 className="animate-spin mb-4 text-orange-600" size={40} />
-                        <p className="font-bold uppercase tracking-widest text-[10px]">Menghubungkan ke Server...</p>
+                        <p className="font-bold uppercase tracking-widest text-[10px]">Sinkronisasi Data...</p>
                     </div>
                 ) : orders.length === 0 ? (
                     <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-200 shadow-inner">
@@ -179,7 +179,7 @@ const OrderHistory = () => {
                                     {order.items?.map((item, idx) => (
                                         <div key={idx} className="flex justify-between items-center bg-gray-50/50 p-3 rounded-2xl border border-gray-100">
                                             <span className="text-xs font-black text-slate-700">{item.qty}x <span className="ml-1 uppercase">{item.name}</span></span>
-                                            <span className="text-[10px] font-bold text-gray-400">Rp {(item.qty * item.price).toLocaleString()}</span>
+                                            <span className="text-[10px] font-bold text-gray-400 font-mono">Rp {(item.qty * item.price).toLocaleString()}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -187,10 +187,10 @@ const OrderHistory = () => {
                                 <div className="flex justify-between items-center pt-5 border-t border-dashed border-gray-200">
                                     <div>
                                         <p className="text-[9px] font-black text-gray-400 uppercase">Total</p>
-                                        <p className="text-xl font-black text-orange-600">Rp {order.total?.toLocaleString()}</p>
+                                        <p className="text-xl font-black text-orange-600 tracking-tighter">Rp {order.total?.toLocaleString()}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[9px] font-black text-gray-400 uppercase">Pukul</p>
+                                        <p className="text-[9px] font-black text-gray-400 uppercase">Waktu</p>
                                         <p className="text-xs font-bold text-slate-500">
                                             {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                                         </p>
