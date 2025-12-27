@@ -87,6 +87,7 @@ const CartPage = () => {
     };
 
     const handlePreCheck = () => {
+        if (!currentUser) return toast.error("Silakan login terlebih dahulu");
         if (subTotal <= 0) return;
         if (!customerName.trim()) return toast.error("Mohon isi Nama Anda");
         if (!scannedTable) return toast.error("Wajib Scan QR Code meja!");
@@ -100,12 +101,10 @@ const CartPage = () => {
         setIsSubmitting(true);
         try {
             const cartItems = Object.values(cart);
-
-            // PASTIKAN userId DAN customerEmail TERSIMPAN UNTUK DISINKRONKAN KE RIWAYAT
             await addDoc(collection(db, "orders"), {
                 orderId: `TRX-${Date.now().toString().slice(-6)}`,
-                userId: currentUser?.uid || 'guest',
-                customerEmail: currentUser?.email || '',
+                userId: currentUser.uid,
+                customerEmail: currentUser.email,
                 tableNumber: scannedTable,
                 customerName,
                 items: cartItems,
@@ -123,10 +122,9 @@ const CartPage = () => {
             }
 
             clearCart();
-            toast.success("Pesanan berhasil dikirim!");
+            toast.success("Pesanan Terkirim!");
             navigate('/history');
         } catch (error) {
-            console.error(error);
             toast.error("Gagal mengirim pesanan");
         } finally {
             setIsSubmitting(false);
@@ -143,98 +141,72 @@ const CartPage = () => {
             </header>
 
             <div className="p-4 space-y-4">
-                <div className={`p-4 rounded-2xl flex items-center gap-3 border ${isLocationValid ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                    {checkingLoc ? <Loader2 className="animate-spin" /> : isLocationValid ? <Navigation size={18} /> : <AlertTriangle size={18} />}
-                    <span className="font-bold text-[10px] uppercase tracking-wider">{isLocationValid ? "Lokasi Valid" : "Anda Diluar Jangkauan Cafe"}</span>
+                <div className={`p-4 rounded-2xl flex items-center gap-3 border ${isLocationValid ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                    {checkingLoc ? <Loader2 className="animate-spin" size={18} /> : isLocationValid ? <QrCode size={18} /> : <AlertTriangle size={18} />}
+                    <span className="font-bold text-[10px] uppercase tracking-wider">{isLocationValid ? "Lokasi Valid" : "Di Luar Area Cafe"}</span>
                 </div>
 
                 <div className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-4">
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Nama Pelanggan</label>
-                        <input type="text" placeholder="Masukkan nama Anda" className="w-full bg-gray-50 p-4 rounded-2xl font-bold border-none outline-orange-500 text-sm" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Nama Anda</label>
+                        <input type="text" placeholder="Nama Lengkap" className="w-full bg-gray-50 p-4 rounded-2xl font-bold border-none outline-orange-500 text-sm" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
                     </div>
 
-                    <div className={`p-4 rounded-2xl flex items-center justify-between border ${scannedTable ? 'bg-slate-900 text-white' : 'bg-red-50 text-red-600 border-red-100'}`}>
-                        <div className="flex items-center gap-3">
-                            <QrCode size={20} />
-                            <span className="font-black uppercase text-xs tracking-widest">{scannedTable ? `MEJA ${scannedTable}` : "SCAN QR MEJA DAHULU"}</span>
-                        </div>
-                        {!scannedTable && <AlertTriangle size={16} className="animate-pulse" />}
+                    <div className={`p-4 rounded-2xl flex items-center gap-3 border ${scannedTable ? 'bg-slate-900 text-white border-slate-900' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                        <QrCode size={20} />
+                        <span className="font-black uppercase text-xs tracking-widest">{scannedTable ? `Meja ${scannedTable}` : "Scan Meja Anda"}</span>
                     </div>
                 </div>
 
                 <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden">
-                    <div className="p-4 bg-gray-50 border-b font-black text-[10px] uppercase text-gray-400 tracking-widest">Ringkasan Pesanan</div>
-                    <div className="max-h-60 overflow-y-auto">
-                        {Object.values(cart).map(item => (
-                            <div key={item.id} className="p-4 flex gap-4 items-center border-b last:border-none">
-                                <img src={item.image} className="w-12 h-12 rounded-xl object-cover border" alt="" />
-                                <div className="flex-1">
-                                    <h4 className="font-black text-xs uppercase text-slate-800">{item.name}</h4>
-                                    <p className="text-[10px] font-bold text-orange-600 tracking-tighter">{item.qty} x Rp {item.price.toLocaleString()}</p>
-                                </div>
+                    <div className="p-4 bg-gray-50 border-b font-black text-[10px] uppercase text-gray-400 tracking-widest">Detail Item</div>
+                    {Object.values(cart).map(item => (
+                        <div key={item.id} className="p-4 flex gap-4 items-center border-b last:border-none">
+                            <img src={item.image} className="w-12 h-12 rounded-xl object-cover border" alt="" />
+                            <div className="flex-1">
+                                <h4 className="font-black text-xs uppercase text-slate-800">{item.name}</h4>
+                                <p className="text-[10px] font-bold text-orange-600 tracking-tighter">{item.qty} x Rp {item.price.toLocaleString()}</p>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            <div className="fixed bottom-0 w-full bg-white p-6 border-t rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
+            <div className="fixed bottom-0 w-full bg-white p-6 border-t rounded-t-[2.5rem] shadow-2xl z-20">
                 <div className="flex justify-between items-center mb-4 px-2">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pembayaran</span>
-                    <div className="text-right">
-                        <span className="text-xl font-black text-slate-900">Rp {totalWithCode.toLocaleString()}</span>
-                        <p className="text-[8px] text-orange-500 font-bold uppercase italic">Inc. Kode Unik {uniqueCode}</p>
-                    </div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Bayar</span>
+                    <span className="text-xl font-black text-slate-900">Rp {totalWithCode.toLocaleString()}</span>
                 </div>
-                <button
-                    onClick={handlePreCheck}
-                    disabled={isSubmitting || !isLocationValid || !scannedTable}
-                    className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-xl shadow-orange-100 active:scale-95 disabled:bg-gray-200 disabled:shadow-none transition-all tracking-[0.2em]"
-                >
-                    Konfirmasi Pesanan
+                <button onClick={handlePreCheck} disabled={isSubmitting || !isLocationValid || !scannedTable} className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-xl active:scale-95 disabled:bg-gray-200 transition-all tracking-[0.2em]">
+                    Proses Sekarang
                 </button>
             </div>
 
             {showQrisModal && (
-                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-[3rem] w-full max-w-md p-8 relative overflow-y-auto max-h-[95vh] shadow-2xl">
                         <button onClick={() => setShowQrisModal(false)} className="absolute top-6 right-6 p-2 bg-gray-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"><X size={20} /></button>
-
                         <div className="text-center mb-6">
-                            <h3 className="font-black text-xs uppercase text-slate-400 tracking-[0.2em] mb-4">Pembayaran Digital</h3>
+                            <h3 className="font-black text-xs uppercase text-slate-400 tracking-[0.2em] mb-4">Pembayaran QRIS</h3>
                             <img src="/assets/qris.png" className="w-48 h-48 mx-auto rounded-3xl border-4 border-slate-900 shadow-xl" alt="QRIS" />
                         </div>
-
                         <div className="bg-orange-50 p-6 rounded-3xl text-center mb-6 border border-orange-100 shadow-inner">
-                            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Transfer Tepat Sesuai Nominal</p>
+                            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Total Tepat</p>
                             <p className="text-3xl font-black text-slate-900 tracking-tighter">Rp {totalWithCode.toLocaleString()}</p>
                         </div>
-
                         <div className="space-y-4">
                             <div className="relative group">
                                 <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                                 <div className={`border-2 border-dashed rounded-3xl p-8 text-center transition-all ${previewUrl ? 'border-green-400 bg-green-50' : 'border-slate-200 hover:border-orange-400'}`}>
                                     {previewUrl ? (
-                                        <div className="space-y-2">
-                                            <img src={previewUrl} className="h-32 mx-auto object-contain rounded-lg shadow-sm" alt="Bukti" />
-                                            <p className="text-[9px] font-black text-green-600 uppercase">Bukti Terlampir</p>
-                                        </div>
+                                        <img src={previewUrl} className="h-32 mx-auto object-contain rounded-lg shadow-sm" alt="Bukti" />
                                     ) : (
-                                        <div className="text-slate-400 font-black text-[10px] uppercase tracking-widest flex flex-col items-center gap-3">
-                                            <Upload size={32} className="text-slate-300" />
-                                            Upload Bukti Bayar
-                                        </div>
+                                        <div className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Upload Bukti Transfer</div>
                                     )}
                                 </div>
                             </div>
-
-                            <button
-                                onClick={submitToFirebase}
-                                disabled={isSubmitting || !proofImage}
-                                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 disabled:bg-slate-200 transition-all tracking-widest"
-                            >
-                                {isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : "Kirim Sekarang"}
+                            <button onClick={submitToFirebase} disabled={isSubmitting || !proofImage} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 disabled:bg-slate-200 transition-all tracking-widest">
+                                {isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : "Konfirmasi Pembayaran"}
                             </button>
                         </div>
                     </div>

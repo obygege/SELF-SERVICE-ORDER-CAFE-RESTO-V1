@@ -129,10 +129,7 @@ const AdminLiveOrders = () => {
                         background: white;
                         display: block !important;
                     }
-                    @page { 
-                        size: 58mm auto; 
-                        margin: 0; 
-                    }
+                    @page { size: 58mm auto; margin: 0; }
                 }
                 `}
             </style>
@@ -140,23 +137,16 @@ const AdminLiveOrders = () => {
             <div id="print-receipt" className="hidden print:block bg-white text-black font-mono" style={{ width: '46mm', margin: '0 auto', padding: '5px', fontSize: '11px' }}>
                 {selectedOrder && (
                     <div className="flex flex-col items-center w-full">
-                        <img
-                            src="/assets/logo.png"
-                            alt="LOGO"
-                            style={{ height: '45px', width: '45px', objectFit: 'contain', marginBottom: '5px', filter: 'grayscale(1)', marginLeft: 'auto', marginRight: 'auto', display: 'block' }}
-                        />
+                        <img src="/assets/logo.png" alt="LOGO" style={{ height: '45px', width: '45px', objectFit: 'contain', marginBottom: '5px', filter: 'grayscale(1)', marginLeft: 'auto', marginRight: 'auto', display: 'block' }} />
                         <h2 style={{ fontSize: '13px', fontWeight: 'bold', margin: '0', textAlign: 'center', lineHeight: '1.2', width: '100%' }}>TAKI COFFEE & EATERY</h2>
-
                         <div style={{ fontSize: '8px', textAlign: 'center', borderTop: '1.5px solid black', marginTop: '6px', paddingTop: '6px', width: '100%', lineHeight: '1.3' }}>
                             <p style={{ margin: '0' }}>Jl. Taman Kenten, Duku, Ilir Tim. II</p>
                             <p style={{ margin: '0' }}>Palembang, Sumatera Selatan</p>
                             <p style={{ margin: '0' }}>0812-7156-2248</p>
                         </div>
-
                         <div style={{ borderTop: '1px dashed black', marginTop: '6px', paddingTop: '6px', width: '100%', textAlign: 'center', fontSize: '10px' }}>
                             {selectedOrder.createdAt ? new Date(selectedOrder.createdAt.seconds * 1000).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : ''}
                         </div>
-
                         <div style={{ borderTop: '1px dashed black', marginTop: '6px', paddingTop: '6px', width: '100%', fontSize: '10px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Admin:</span><span>{adminName.substring(0, 8)}</span></div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cust:</span><span>{selectedOrder.customerName?.substring(0, 10)}</span></div>
@@ -166,9 +156,7 @@ const AdminLiveOrders = () => {
                                 <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{selectedOrder.tableNumber}</span>
                             </div>
                         </div>
-
                         <div style={{ borderTop: '1.5px solid black', marginTop: '6px', width: '100%' }}></div>
-
                         <div style={{ width: '100%', marginTop: '6px' }}>
                             {selectedOrder.items.map((item, i) => (
                                 <div key={i} style={{ marginBottom: '6px' }}>
@@ -180,24 +168,17 @@ const AdminLiveOrders = () => {
                                 </div>
                             ))}
                         </div>
-
                         <div style={{ borderTop: '1.5px solid black', marginTop: '6px', paddingTop: '6px', width: '100%' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span>{selectedOrder.subTotal?.toLocaleString()}</span></div>
-                            {selectedOrder.uniqueCode > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Kode Unik</span><span>{selectedOrder.uniqueCode}</span></div>
-                            )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '3px', borderTop: '1px solid black', paddingTop: '4px' }}>
                                 <span>TOTAL</span><span>Rp {selectedOrder.total?.toLocaleString()}</span>
                             </div>
                         </div>
-
                         <div style={{ border: '1.5px solid black', width: '100%', textAlign: 'center', marginTop: '10px', padding: '4px', fontWeight: 'bold', fontSize: '12px' }}>
                             {selectedOrder.paymentStatus === 'paid' ? 'LUNAS / PAID' : 'BELUM BAYAR'}
                         </div>
-
                         <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '9px', borderTop: '1px dotted black', paddingTop: '6px' }}>
                             <p style={{ margin: '0' }}>TERIMA KASIH TELAH BERKUNJUNG</p>
-                            <p style={{ margin: '3px 0 0 0', fontWeight: 'bold' }}>Created By: Futura Link</p>
                         </div>
                         <div style={{ height: '15mm' }}></div>
                     </div>
@@ -206,7 +187,7 @@ const AdminLiveOrders = () => {
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 no-print">
                 <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter">
-                    <BellRing className="text-orange-600 animate-bounce" /> {role === 'kitchen' ? 'Dapur' : role === 'barista' ? 'Bar' : 'Live Order'}
+                    <BellRing className="text-orange-600 animate-bounce" /> Live Order
                 </h1>
                 <div className="relative w-full md:w-auto">
                     <Search className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -218,7 +199,7 @@ const AdminLiveOrders = () => {
                 {filteredOrders.map(order => {
                     const isPaid = order.paymentStatus === 'paid';
                     const isRejected = order.status === 'payment_rejected';
-                    const isQris = order.paymentMethod === 'QRIS Transfer' || order.proofImage;
+                    const isQris = order.proofImage;
                     const isKitchenBar = role === 'kitchen' || role === 'barista';
 
                     return (
@@ -236,9 +217,7 @@ const AdminLiveOrders = () => {
                                     <span className={`text-[9px] font-black uppercase ${isPaid ? 'text-green-600' : 'text-red-600'}`}>{isPaid ? 'Lunas' : 'Belum Bayar'}</span>
                                 </div>
                             </div>
-
                             <div className="mb-3 text-[11px] font-black text-slate-400 uppercase border-b pb-2">{order.customerName}</div>
-
                             <div className="space-y-1 mb-4 text-sm flex-1 bg-slate-50 p-3 rounded-xl">
                                 {order.items.map((item, idx) => (
                                     <div key={idx} className="flex justify-between text-xs font-bold uppercase text-slate-700">
@@ -246,21 +225,20 @@ const AdminLiveOrders = () => {
                                     </div>
                                 ))}
                             </div>
-
                             <div className="flex flex-col gap-2">
                                 {isQris && !isKitchenBar && !isPaid && !isRejected && (
                                     <button onClick={() => setProofModalOrder(order)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-black text-[10px] uppercase flex justify-center gap-2 transition-all active:scale-95 shadow-md border-2 border-blue-700">
-                                        <Eye size={14} /> Bukti Bayar & Verifikasi
+                                        <Eye size={14} /> Verifikasi Bukti Bayar
                                     </button>
                                 )}
                                 {!isKitchenBar && !isPaid && !isRejected && !order.proofImage && (
                                     <button onClick={() => confirmPayment(order.id)} className="w-full bg-green-600 text-white py-3 rounded-xl font-black text-[10px] uppercase flex justify-center gap-2 transition-all active:scale-95 shadow-md border-2 border-green-700">
-                                        <Banknote size={16} /> Terima Tunai (Manual)
+                                        <Banknote size={16} /> Terima Tunai
                                     </button>
                                 )}
                                 <div className="flex gap-2">
                                     <button onClick={() => changeStatus(order.id, order.status)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase text-white shadow-md active:scale-95 transition-all ${isKitchenBar ? 'bg-orange-600' : 'bg-slate-900'}`}>
-                                        {isKitchenBar ? (order.status === 'pending' ? 'Proses Masak' : 'Siap Saji') : 'Selesai / Simpan'}
+                                        {isKitchenBar ? (order.status === 'pending' ? 'Proses' : 'Siap Saji') : 'Selesai'}
                                     </button>
                                     <button onClick={() => handlePrintAction(order)} disabled={isPrinting} className="px-4 bg-gray-100 text-slate-500 rounded-xl border border-slate-100 flex items-center justify-center active:scale-95 transition-all shadow-sm">
                                         {isPrinting && selectedOrder?.id === order.id ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}
@@ -276,35 +254,23 @@ const AdminLiveOrders = () => {
                 <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white rounded-[2.5rem] w-full max-w-md p-6 flex flex-col shadow-2xl border-4 border-white">
                         <div className="flex justify-between mb-4 items-center">
-                            <div className="flex flex-col">
-                                <h3 className="font-black text-xs uppercase tracking-widest text-slate-400">Verifikasi Pembayaran</h3>
-                                <span className="text-[10px] font-bold text-slate-900 mt-1">{proofModalOrder.orderId}</span>
-                            </div>
+                            <h3 className="font-black text-xs uppercase tracking-widest text-slate-400">Verifikasi Pembayaran</h3>
                             <button onClick={() => setProofModalOrder(null)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
                         </div>
                         <div className="bg-slate-100 rounded-2xl p-2 mb-4 flex justify-center items-center overflow-hidden border-2 border-slate-200 shadow-inner min-h-[300px]">
                             {proofModalOrder.proofImage ? (
-                                <img
-                                    src={proofModalOrder.proofImage}
-                                    alt="Bukti Transfer"
-                                    className="max-w-full rounded-lg max-h-[50vh] object-contain shadow-sm cursor-zoom-in"
-                                    onClick={() => window.open(proofModalOrder.proofImage, '_blank')}
-                                    onError={(e) => {
-                                        e.target.src = "https://via.placeholder.com/400x600?text=Gambar+Tidak+Tersedia";
-                                        toast.error("Gagal memuat gambar bukti");
-                                    }}
-                                />
+                                <img src={proofModalOrder.proofImage} alt="Bukti Transfer" className="max-w-full rounded-lg max-h-[50vh] object-contain shadow-sm cursor-zoom-in" onClick={() => window.open(proofModalOrder.proofImage, '_blank')} />
                             ) : (
                                 <div className="p-10 text-slate-400 font-bold uppercase text-[10px]">Bukti tidak ditemukan</div>
                             )}
                         </div>
                         <div className="bg-orange-50 p-4 rounded-2xl mb-6 text-center border border-orange-100">
-                            <p className="text-[10px] font-black text-orange-400 uppercase mb-1">Total Tagihan:</p>
+                            <p className="text-[10px] font-black text-orange-400 uppercase mb-1">Tagihan:</p>
                             <p className="text-2xl font-black text-slate-900 tracking-tight">Rp {proofModalOrder.total?.toLocaleString()}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => rejectPayment(proofModalOrder.id)} className="bg-red-50 text-red-600 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-red-100 active:scale-95 transition-all shadow-sm">❌ TOLAK</button>
-                            <button onClick={() => confirmPayment(proofModalOrder.id)} className="bg-green-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg shadow-green-100">✅ KONFIRMASI LUNAS</button>
+                            <button onClick={() => confirmPayment(proofModalOrder.id)} className="bg-green-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg shadow-green-100">✅ TERIMA</button>
                         </div>
                     </div>
                 </div>
