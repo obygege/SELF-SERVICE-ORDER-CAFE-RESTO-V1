@@ -26,6 +26,9 @@ import HeadHistory from './pages/HeadHistory';
 import HeadDatabase from './pages/HeadDatabase';
 import HeadAddStaff from './pages/HeadAddStaff';
 
+// SELESAI UPLOAD: Hapus baris import di bawah ini
+import BulkAddProducts from './pages/BulkAddProducts';
+
 const PrivateRoute = ({ children, allowedRoles }) => {
   const { currentUser, userRole, loading } = useAuth();
   const location = useLocation();
@@ -65,6 +68,9 @@ function App() {
             <Route path="/login" element={<LoginUser />} />
             <Route path="/staff-login" element={<LoginStaff />} />
             <Route path="/kitchen-login" element={<LoginKitchenBarista />} />
+
+            {/* SELESAI UPLOAD: Hapus baris rute di bawah ini */}
+            <Route path="/admin/secret-bulk-upload-taki" element={<BulkAddProducts />} />
 
             <Route path="/" element={<PrivateRoute allowedRoles={['user', 'admin', 'head']}><UserMenu /></PrivateRoute>} />
             <Route path="/cart" element={<PrivateRoute allowedRoles={['user', 'admin', 'head']}><CartPage /></PrivateRoute>} />

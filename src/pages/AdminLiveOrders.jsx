@@ -29,7 +29,7 @@ const Receipt = React.forwardRef(({ order, role, adminName }, ref) => {
     const isKitchenOrBar = role === 'kitchen' || role === 'barista';
 
     return (
-        <div ref={ref} className="bg-white text-black font-mono mx-auto" style={{ width: '58mm', padding: '10px 5px', fontSize: '10px', color: '#000', display: 'block', height: 'auto', overflow: 'visible' }}>
+        <div ref={ref} className="bg-white text-black font-mono p-2 mx-auto" style={{ width: '58mm', padding: '10px 5px', margin: '0', fontSize: '10px', color: '#000', display: 'block', height: 'auto', overflow: 'visible' }}>
             <style type="text/css" media="print">
                 {`@page { size: 58mm auto; margin: 0; } 
                   body { margin: 0; padding: 0; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
@@ -56,7 +56,7 @@ const Receipt = React.forwardRef(({ order, role, adminName }, ref) => {
             </div>
 
             <div className="mt-2 space-y-1 text-[9px]">
-                <div className="flex justify-between"><span>Admin:</span><span className="font-bold uppercase">{adminName || 'Staff'}</span></div>
+                <div className="flex justify-between"><span>Admin:</span><span className="font-bold uppercase">{order.verifiedBy || adminName || 'Staff'}</span></div>
                 <div className="flex justify-between"><span>Pelanggan:</span><span className="font-bold uppercase">{order.customerName?.substring(0, 15)}</span></div>
                 <div className="flex justify-between"><span>No. Trx:</span><span>{order.orderId}</span></div>
                 <div className="flex justify-between mt-1 pt-1 border-t border-black border-dotted"><span>Meja:</span><span className="font-extrabold text-[12px]">MEJA {order.tableNumber}</span></div>
@@ -159,7 +159,10 @@ const AdminLiveOrders = () => {
 
     const confirmPayment = async (id) => {
         if (window.confirm("Yakin konfirmasi pembayaran ini Valid & Lunas?")) {
-            await updateDoc(doc(db, "orders", id), { paymentStatus: 'paid' });
+            await updateDoc(doc(db, "orders", id), {
+                paymentStatus: 'paid',
+                verifiedBy: adminName
+            });
             setProofModalOrder(null);
             toast.success("Pembayaran Lunas");
         }
@@ -168,7 +171,11 @@ const AdminLiveOrders = () => {
     const rejectPayment = async (id) => {
         const reason = window.prompt("Masukkan alasan penolakan:", "Nominal tidak sesuai");
         if (reason) {
-            await updateDoc(doc(db, "orders", id), { status: 'payment_rejected', note: `Ditolak: ${reason}` });
+            await updateDoc(doc(db, "orders", id), {
+                status: 'payment_rejected',
+                note: `Ditolak: ${reason}`,
+                verifiedBy: adminName
+            });
             setProofModalOrder(null);
             toast.error("Pembayaran DITOLAK");
         }

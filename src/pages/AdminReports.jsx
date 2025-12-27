@@ -40,14 +40,13 @@ const AdminReports = () => {
                     id: doc.id,
                     total: parseInt(d.total) || 0,
                     subTotal: parseInt(d.subTotal) || 0,
-                    adminFee: parseInt(d.adminFee) || 0,
                     date: d.createdAt ? new Date(d.createdAt.seconds * 1000) : new Date(),
                     status: d.status || 'pending',
                     paymentStatus: d.paymentStatus || 'unpaid'
                 };
             });
 
-            const validData = data.filter(o => o.status === 'completed' || o.paymentStatus === 'paid');
+            const validData = data.filter(o => o.status === 'completed');
             setAllOrders(validData);
         } catch (error) {
             console.error("Error fetching reports:", error);
@@ -135,13 +134,13 @@ const AdminReports = () => {
     );
 
     return (
-        <div>
+        <div className="p-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <TrendingUp className="text-green-600" /> Laporan Keuangan & Transaksi
                 </h1>
                 <button onClick={downloadPDF} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg transition">
-                    <FileText size={18} /> Download PDF (Filtered)
+                    <FileText size={18} /> Download PDF
                 </button>
             </div>
 
@@ -195,7 +194,7 @@ const AdminReports = () => {
             <div className="grid gap-6 md:grid-cols-3 mb-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10 text-blue-500"><DollarSign size={64} /></div>
-                    <p className="text-gray-500 text-sm font-medium uppercase mb-2">Total Omzet</p>
+                    <p className="text-gray-500 text-sm font-medium uppercase mb-2">Total Omzet (Completed)</p>
                     <h3 className="text-3xl font-bold text-gray-800">Rp {summary.totalRevenue.toLocaleString('id-ID')}</h3>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
@@ -212,7 +211,7 @@ const AdminReports = () => {
 
             <div className="bg-white rounded-xl shadow-sm border p-6">
                 <h3 className="font-bold text-lg mb-4 text-gray-700 flex justify-between items-center">
-                    <span>Detail Transaksi Harian</span>
+                    <span>Detail Transaksi Harian (Status: Completed)</span>
                     <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{filteredOrders.length} Data Ditampilkan</span>
                 </h3>
 
@@ -225,17 +224,16 @@ const AdminReports = () => {
                                 <th className="p-3">Pelanggan</th>
                                 <th className="p-3">Status</th>
                                 <th className="p-3 text-right">Subtotal</th>
-                                <th className="p-3 text-right">Fee</th>
                                 <th className="p-3 text-right">Total</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
                             {filteredOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="p-8 text-center text-gray-400">
+                                    <td colSpan="6" className="p-8 text-center text-gray-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <AlertCircle size={24} />
-                                            <span>Tidak ada transaksi pada rentang waktu ini.</span>
+                                            <span>Tidak ada transaksi "Completed" pada rentang waktu ini.</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -246,12 +244,11 @@ const AdminReports = () => {
                                         <td className="p-3 font-mono font-bold text-orange-600">{order.orderId}</td>
                                         <td className="p-3 font-medium">{order.customerName || 'Guest'}</td>
                                         <td className="p-3">
-                                            <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                            <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase bg-green-100 text-green-700`}>
                                                 {order.status}
                                             </span>
                                         </td>
                                         <td className="p-3 text-right">Rp {order.subTotal?.toLocaleString('id-ID')}</td>
-                                        <td className="p-3 text-right text-green-600">+ Rp {order.adminFee?.toLocaleString('id-ID')}</td>
                                         <td className="p-3 text-right font-bold">Rp {order.total?.toLocaleString('id-ID')}</td>
                                     </tr>
                                 ))

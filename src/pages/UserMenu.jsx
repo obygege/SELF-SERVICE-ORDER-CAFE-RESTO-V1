@@ -15,22 +15,17 @@ const UserMenu = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    // AMBIL DATA MEJA DARI URL ATAU STORAGE
     const urlTable = searchParams.get('table');
     const savedTable = localStorage.getItem('activeTable');
 
-    // HAPUS DEFAULT "1". JIKA KOSONG YA NULL.
     const activeTable = urlTable || savedTable;
     const displayTable = activeTable ? activeTable.toString().replace(/Meja\s*/i, "").replace(/No\.?\s*/i, "").trim() : "";
 
     useEffect(() => {
         if (urlTable) {
             localStorage.setItem('activeTable', urlTable);
-        } else if (savedTable) {
-            // Opsional: Sync URL dengan storage jika perlu
-            // setSearchParams({ table: savedTable }, { replace: true });
         }
-    }, [urlTable, savedTable, setSearchParams]);
+    }, [urlTable]);
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -52,7 +47,6 @@ const UserMenu = () => {
         await logout();
     };
 
-    // --- TAMPILAN JIKA BELUM SCAN QR ---
     if (!activeTable) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center relative overflow-hidden font-sans">
@@ -95,7 +89,6 @@ const UserMenu = () => {
         );
     }
 
-    // --- TAMPILAN MENU UTAMA ---
     return (
         <div className="min-h-screen bg-gray-50 font-sans flex flex-col relative">
             <header className="bg-white sticky top-0 z-20 shadow-sm border-b px-4 py-3 flex justify-between items-center">
@@ -118,87 +111,89 @@ const UserMenu = () => {
                 </div>
             </header>
 
-            <div className="p-4">
-                <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-                    <div className="relative z-10">
-                        <h2 className="text-2xl font-bold mb-1">Lapar Banget?</h2>
-                        <p className="text-orange-100 text-sm opacity-90">Pesan sekarang, langsung kami antar!</p>
-                    </div>
-                    <div className="absolute right-[-20px] bottom-[-20px] opacity-20 bg-white rounded-full w-32 h-32 blur-xl"></div>
-                </div>
-            </div>
-
-            <div className="px-4 mb-4 overflow-x-auto no-scrollbar">
-                <div className="flex gap-2">
-                    {uniqueCategories.map(cat => (
-                        <button key={cat} onClick={() => setCategoryFilter(cat)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shadow-sm ${categoryFilter === cat ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                            {cat}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="px-4 pb-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                {loading ? <p className="col-span-2 text-center text-gray-400 py-10">Memuat menu...</p> :
-                    filteredProducts.length === 0 ? (
-                        <div className="col-span-full text-center py-10 text-gray-400">
-                            <p>Tidak ada produk di kategori ini</p>
+            <main className="flex-1">
+                <div className="p-4">
+                    <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h2 className="text-2xl font-bold mb-1">Lapar Banget?</h2>
+                            <p className="text-orange-100 text-sm opacity-90">Pesan sekarang, langsung kami antar!</p>
                         </div>
-                    ) : (
-                        filteredProducts.map(item => (
-                            <div key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full border border-gray-100">
-                                <div className="h-36 bg-gray-100 relative group">
-                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" onError={(e) => e.target.src = 'https://via.placeholder.com/150'} />
-                                    {item.stock <= 0 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm"><span className="text-white text-xs font-bold border border-white px-2 py-1 rounded">HABIS</span></div>}
-                                </div>
+                        <div className="absolute right-[-20px] bottom-[-20px] opacity-20 bg-white rounded-full w-32 h-32 blur-xl"></div>
+                    </div>
+                </div>
 
-                                <div className="p-3 flex flex-col flex-1">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider border px-1 rounded">{item.category}</span>
-                                        <span className="text-[10px] text-gray-400">Stok: {item.stock}</span>
-                                    </div>
-                                    <h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 leading-tight">{item.name}</h3>
-                                    <p className="text-orange-600 font-bold mt-auto">Rp {item.price.toLocaleString()}</p>
+                <div className="px-4 mb-4 overflow-x-auto no-scrollbar">
+                    <div className="flex gap-2">
+                        {uniqueCategories.map(cat => (
+                            <button key={cat} onClick={() => setCategoryFilter(cat)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shadow-sm ${categoryFilter === cat ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-                                    <div className="mt-3">
-                                        {item.stock <= 0 ? (
-                                            <button disabled className="w-full py-2 rounded-lg text-sm font-bold bg-gray-200 text-gray-500 cursor-not-allowed">Habis</button>
-                                        ) : (
-                                            cart[item.id] ? (
-                                                <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-1">
-                                                    <button onClick={() => decreaseQty(item.id)} className="p-1 bg-white rounded shadow-sm text-gray-600 hover:text-red-500"><Minus size={14} /></button>
-                                                    <span className="font-bold text-sm w-6 text-center">{cart[item.id].qty}</span>
-                                                    <button disabled={cart[item.id].qty >= item.stock} onClick={() => addToCart(item)} className={`p-1 bg-white rounded shadow-sm ${cart[item.id].qty >= item.stock ? 'text-gray-300' : 'text-green-600 hover:text-green-700'}`}><Plus size={14} /></button>
-                                                </div>
-                                            ) : (
-                                                <button onClick={() => addToCart(item)} className="w-full py-2 rounded-lg text-sm font-bold bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-colors">
-                                                    Tambah
-                                                </button>
-                                            )
-                                        )}
-                                    </div>
-                                </div>
+                <div className="px-4 pb-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {loading ? <p className="col-span-2 text-center text-gray-400 py-10">Memuat menu...</p> :
+                        filteredProducts.length === 0 ? (
+                            <div className="col-span-full text-center py-10 text-gray-400">
+                                <p>Tidak ada produk di kategori ini</p>
                             </div>
-                        ))
-                    )}
-            </div>
+                        ) : (
+                            filteredProducts.map(item => (
+                                <div key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full border border-gray-100">
+                                    <div className="h-36 bg-gray-100 relative group">
+                                        <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" onError={(e) => e.target.src = 'https://via.placeholder.com/150'} />
+                                        {item.stock <= 0 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm"><span className="text-white text-xs font-bold border border-white px-2 py-1 rounded">HABIS</span></div>}
+                                    </div>
 
-            <footer className="py-4 bg-gray-50 text-center pb-24">
-                <p className="text-[10px] text-gray-400 font-medium">Created By <span className="text-orange-600 font-bold">Futura Link</span></p>
+                                    <div className="p-3 flex flex-col flex-1">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider border px-1 rounded">{item.category}</span>
+                                            <span className="text-[10px] text-gray-400">Stok: {item.stock}</span>
+                                        </div>
+                                        <h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 leading-tight">{item.name}</h3>
+                                        <p className="text-orange-600 font-bold mt-auto">Rp {item.price.toLocaleString()}</p>
+
+                                        <div className="mt-3">
+                                            {item.stock <= 0 ? (
+                                                <button disabled className="w-full py-2 rounded-lg text-sm font-bold bg-gray-200 text-gray-500 cursor-not-allowed">Habis</button>
+                                            ) : (
+                                                cart[item.id] ? (
+                                                    <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-1">
+                                                        <button onClick={() => decreaseQty(item.id)} className="p-1 bg-white rounded shadow-sm text-gray-600 hover:text-red-500"><Minus size={14} /></button>
+                                                        <span className="font-bold text-sm w-6 text-center">{cart[item.id].qty}</span>
+                                                        <button disabled={cart[item.id].qty >= item.stock} onClick={() => addToCart(item)} className={`p-1 bg-white rounded shadow-sm ${cart[item.id].qty >= item.stock ? 'text-gray-300' : 'text-green-600 hover:text-green-700'}`}><Plus size={14} /></button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => addToCart(item)} className="w-full py-2 rounded-lg text-sm font-bold bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-colors">
+                                                        Tambah
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                </div>
+            </main>
+
+            <footer className={`py-4 bg-gray-50 text-center ${getCartCount() > 0 ? 'pb-28' : 'pb-6'}`}>
+                <p className="text-[10px] text-gray-400 font-medium tracking-widest uppercase">Created By <span className="text-orange-600 font-bold">Futura Link</span></p>
             </footer>
 
             {getCartCount() > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 p-4 z-30 bg-gradient-to-t from-white via-white to-transparent">
-                    <button onClick={() => navigate('/cart')} className="w-full bg-slate-900 text-white rounded-2xl shadow-2xl p-4 flex justify-between items-center hover:bg-slate-800 transition transform active:scale-95">
+                <div className="fixed bottom-0 left-0 right-0 p-4 z-30">
+                    <button onClick={() => navigate('/cart')} className="w-full bg-slate-900 text-white rounded-2xl shadow-2xl p-4 flex justify-between items-center hover:bg-slate-800 transition transform active:scale-95 border border-white/10">
                         <div className="flex flex-col text-left">
-                            <span className="text-xs text-gray-400">Total Pesanan</span>
+                            <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider">Cek Keranjang</span>
                             <div className="flex items-center gap-2">
-                                <span className="font-bold text-xl">Rp {getCartTotal().toLocaleString()}</span>
-                                <span className="bg-gray-700 text-[10px] px-2 py-0.5 rounded-full text-gray-300">{getCartCount()} Item</span>
+                                <span className="font-bold text-xl tracking-tighter">Rp {getCartTotal().toLocaleString()}</span>
+                                <span className="bg-orange-600 text-[10px] px-2 py-0.5 rounded-full text-white font-black">{getCartCount()} ITEM</span>
                             </div>
                         </div>
-                        <div className="bg-orange-600 p-2 rounded-xl text-white shadow-lg shadow-orange-900/20">
+                        <div className="bg-white/10 p-2 rounded-xl text-white">
                             <ShoppingCart size={24} />
                         </div>
                     </button>

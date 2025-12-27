@@ -18,59 +18,62 @@ const KitchenReceipt = React.forwardRef(({ order }, ref) => {
     if (myItems.length === 0) return null;
 
     const dateObj = order.createdAt ? new Date(order.createdAt.seconds * 1000) : new Date();
-    const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    const fullDateTime = dateObj.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 
     return (
-        <div ref={ref} className="bg-white text-black font-mono p-2 mx-auto" style={{ width: '58mm', fontSize: '12px' }}>
-            <style media="print">{`@page { size: 58mm auto; margin: 0; } body { margin: 0; padding: 0; font-family: monospace; }`}</style>
+        <div ref={ref} className="bg-white text-black font-mono mx-auto" style={{ width: '58mm', padding: '10px 5px', fontSize: '10px', color: '#000', display: 'block' }}>
+            <style type="text/css" media="print">
+                {`@page { size: 58mm auto; margin: 0; } 
+                  body { margin: 0; padding: 0; background: #fff !important; }`}
+            </style>
 
-            <div className="text-center border-b-2 border-black pb-2 mb-2">
-                <h2 className="font-black text-lg uppercase tracking-tighter">ORDER DAPUR (FOOD)</h2>
-                <div className="flex justify-between text-[10px] mt-1 px-1 font-bold">
-                    <span>{dateStr}</span>
-                    <span>{timeStr}</span>
-                </div>
+            <div className="text-center mb-2 border-b border-black pb-2">
+                <h2 className="font-extrabold text-[14px] uppercase leading-tight">DAPUR (FOOD)</h2>
+                <p className="text-[8px] uppercase mt-1">{fullDateTime}</p>
             </div>
 
-            <div className="space-y-1 mb-2 px-1 text-[11px]">
-                <div className="flex justify-between italic text-[10px]">
+            <div className="mt-2 space-y-1 text-[10px]">
+                <div className="flex justify-between">
                     <span>Admin:</span>
-                    <span className="font-bold uppercase">Staff Kitchen</span>
+                    <span className="font-bold uppercase">{order.verifiedBy || 'Admin'}</span>
                 </div>
                 <div className="flex justify-between">
                     <span>Pelanggan:</span>
                     <span className="font-bold uppercase truncate max-w-[100px]">{order.customerName}</span>
                 </div>
-                <div className="text-center py-2 border-y border-black my-1">
-                    <span className="text-2xl font-black">MEJA {order.tableNumber}</span>
+                <div className="flex justify-between">
+                    <span>No. Trx:</span>
+                    <span>{order.orderId}</span>
+                </div>
+                <div className="text-center py-2 border-y border-black my-2">
+                    <span className="text-2xl font-black italic">MEJA {order.tableNumber}</span>
                 </div>
             </div>
 
-            <div className="flex flex-col gap-3 mt-2 px-1">
+            <div className="flex flex-col gap-2 mt-2">
                 {myItems.map((item, i) => (
-                    <div key={i} className="leading-tight border-b border-gray-200 pb-1 last:border-0">
-                        <div className="flex items-start gap-2">
-                            <span className="font-black text-xl">{item.qty}x</span>
-                            <span className="font-bold text-[13px] uppercase">{item.name}</span>
+                    <div key={i} className="flex items-start gap-2 border-b border-gray-100 pb-1 last:border-0">
+                        <span className="font-black text-lg">{item.qty}x</span>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-[12px] uppercase leading-tight">{item.name}</span>
+                            {item.note && (
+                                <span className="text-[9px] italic mt-0.5">* {item.note}</span>
+                            )}
                         </div>
-                        {item.note && (
-                            <div className="ml-6 text-[10px] bg-black text-white px-1 inline-block mt-1 font-bold uppercase">
-                                * {item.note}
-                            </div>
-                        )}
                     </div>
                 ))}
             </div>
 
-            {order.note && (
-                <div className="mt-3 p-1 border-2 border-black text-[10px] font-black uppercase text-center leading-none">
-                    Catatan Order: {order.note}
-                </div>
-            )}
-
-            <div className="mt-4 pt-2 border-t border-black text-center text-[9px] font-bold">
-                ID: {order.orderId}
+            <div className="border-t border-black mt-4 pt-2 text-center text-[8px] uppercase">
+                <p>Silakan segera diproses</p>
+                {order.note && <p className="font-bold mt-1">Catatan Order: {order.note}</p>}
             </div>
         </div>
     );
@@ -201,13 +204,6 @@ const KitchenDisplay = () => {
                                         </div>
                                     </div>
                                 ))}
-
-                                {order.note && (
-                                    <div className="mt-2 p-3 bg-slate-900 rounded-2xl">
-                                        <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1">Catatan Pesanan:</p>
-                                        <p className="text-white text-[10px] font-bold uppercase leading-tight">{order.note}</p>
-                                    </div>
-                                )}
                             </div>
 
                             <div className="p-6 pt-0 space-y-3">
@@ -239,9 +235,9 @@ const KitchenDisplay = () => {
             </div>
 
             {previewOrder && (
-                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-md">
-                    <div className="bg-white rounded-[3rem] shadow-2xl p-8 w-full max-w-sm flex flex-col items-center">
-                        <div className="flex justify-between items-center w-full mb-6">
+                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[3rem] shadow-2xl p-8 w-full max-w-sm flex flex-col items-center max-h-[90vh] overflow-y-auto relative">
+                        <div className="w-full flex justify-between items-center mb-6">
                             <h3 className="font-black text-xs text-slate-400 uppercase tracking-widest">Kitchen Ticket</h3>
                             <button onClick={() => setPreviewOrder(null)} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-colors"><X size={24} /></button>
                         </div>
