@@ -113,7 +113,7 @@ const LoginKitchenBarista = () => {
                             disabled={loading}
                             className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-200 transition-all active:scale-95 flex items-center justify-center gap-3 mt-4"
                         >
-                            {loading ? <Loader2 className="animate-spin" size={24} /> : "MASUK KERJA"}
+                            {loading ? <Loader2 className="animate-spin" size={24} /> : "MASUK"}
                         </button>
                     </form>
 
