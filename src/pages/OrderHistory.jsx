@@ -24,9 +24,10 @@ const OrderHistory = () => {
         }
 
         setLoading(true);
+        
         const q = query(
             collection(db, "orders"),
-            where("customerEmail", "==", currentUser.email),
+            where("userId", "==", currentUser.uid),
             orderBy("createdAt", "desc")
         );
 
@@ -34,6 +35,18 @@ const OrderHistory = () => {
             const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setOrders(list);
             setLoading(false);
+        }, (error) => {
+            console.error("Error fetching orders:", error);
+            const qFallback = query(
+                collection(db, "orders"),
+                where("customerName", "==", currentUser.displayName || ""),
+                orderBy("createdAt", "desc")
+            );
+            onSnapshot(qFallback, (snap) => {
+                const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setOrders(list);
+                setLoading(false);
+            });
         });
 
         return () => unsub();
@@ -58,7 +71,6 @@ const OrderHistory = () => {
 
     const handleReupload = async (orderId) => {
         if (!selectedFile) return;
-
         setUploadingId(orderId);
         try {
             await updateDoc(doc(db, "orders", orderId), {
@@ -67,13 +79,11 @@ const OrderHistory = () => {
                 paymentStatus: 'unpaid',
                 note: 'Bukti pembayaran diperbarui oleh customer.'
             });
-
             toast.success("Bukti pembayaran berhasil dikirim ulang!");
             setActiveReuploadId(null);
             setSelectedFile(null);
             setPreviewUrl(null);
         } catch (error) {
-            console.error(error);
             toast.error("Gagal mengirim ulang bukti");
         } finally {
             setUploadingId(null);
@@ -90,17 +100,15 @@ const OrderHistory = () => {
         if (status === 'payment_rejected') {
             return { label: 'PEMBAYARAN DITOLAK', color: 'bg-red-100 text-red-700 border-red-200', icon: <XCircle size={16} /> };
         }
-
         if (status === 'completed') {
             return { label: 'PESANAN SELESAI', color: 'bg-gray-800 text-white border-gray-900', icon: <CheckCircle size={16} /> };
         }
-
         switch (status) {
             case 'pending':
-                return {
-                    label: paymentStatus === 'paid' ? 'DIKONFIRMASI (ANTRI)' : 'MENUNGGU KONFIRMASI',
-                    color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                    icon: <Clock size={16} />
+                return { 
+                    label: paymentStatus === 'paid' ? 'DIKONFIRMASI (ANTRI)' : 'MENUNGGU KONFIRMASI', 
+                    color: 'bg-yellow-100 text-yellow-700 border-yellow-200', 
+                    icon: <Clock size={16} /> 
                 };
             case 'cooking':
                 return { label: 'SEDANG DIMASAK', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <ChefHat size={16} /> };
@@ -148,7 +156,7 @@ const OrderHistory = () => {
                     const isPaid = order.paymentStatus === 'paid';
 
                     return (
-                        <div key={order.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden transition-all active:scale-[0.98]">
+                        <div key={order.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden transition-all mb-4">
                             <div className={`p-4 flex justify-between items-center ${statusInfo.color} border-b`}>
                                 <div className="flex items-center gap-2">
                                     {statusInfo.icon}
@@ -164,7 +172,7 @@ const OrderHistory = () => {
                                         <div className="flex items-center gap-2">
                                             <span className={`h-2 w-2 rounded-full ${isPaid ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></span>
                                             <span className={`text-xs font-black uppercase ${isPaid ? 'text-green-600' : 'text-red-600'}`}>
-                                                {isPaid ? 'Sudah Lunas' : 'Belum Diverifikasi'}
+                                                {isPaid ? 'Sudah Lunas' : 'Menunggu Verifikasi'}
                                             </span>
                                         </div>
                                     </div>
@@ -202,15 +210,14 @@ const OrderHistory = () => {
                                                 {previewUrl && (
                                                     <div className="relative group">
                                                         <img src={previewUrl} alt="Preview" className="h-40 w-full object-cover rounded-xl border-2 border-white shadow-md" />
-                                                        <div className="absolute inset-0 bg-black/20 rounded-xl"></div>
                                                     </div>
                                                 )}
                                                 <div className="flex gap-2">
                                                     <button onClick={cancelReupload} className="flex-1 py-3 text-[10px] font-black text-gray-400 uppercase bg-white border border-gray-200 rounded-xl">Batal</button>
-                                                    <button
+                                                    <button 
                                                         onClick={() => handleReupload(order.id)}
                                                         disabled={uploadingId === order.id}
-                                                        className="flex-2 px-6 py-3 text-[10px] font-black text-white bg-red-600 rounded-xl flex justify-center items-center gap-2 shadow-lg shadow-red-100"
+                                                        className="flex-2 px-6 py-3 text-[10px] font-black text-white bg-red-600 rounded-xl flex justify-center items-center gap-2 shadow-lg"
                                                     >
                                                         {uploadingId === order.id ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                                                         Update Bukti
