@@ -68,7 +68,7 @@ const AdminTables = () => {
                 ctx.fillText(table.tableNumber, canvas.width / 2, 1400);
 
                 ctx.font = '60px Arial';
-                ctx.fillText('Cafe Futura', canvas.width / 2, 1520);
+                ctx.fillText('Taki Coffee & Eatery', canvas.width / 2, 1520);
 
                 const link = document.createElement('a');
                 link.download = `QR_Meja_${table.tableNumber}.png`;
@@ -99,7 +99,7 @@ const AdminTables = () => {
                       <img src="${qrDataUrl}" style="width:200px; height:200px; display:block; margin: 0 auto;" />
                       <h1 style="font-family:sans-serif; font-size:40px; margin:10px 0 0 0; font-weight:900;">${table.tableNumber}</h1>
                       <p style="font-family:sans-serif; margin-top:5px; font-size:15px">Pesan Dengan cara scan QR ini</p>
-                      <p style="font-family:sans-serif; margin-top:5px;">Cafe Futura</p>
+                      <p style="font-family:sans-serif; margin-top:5px;">Taki Coffee & Eatery</p>
                     </div>
                   </body>
                 </html>
@@ -142,7 +142,7 @@ const AdminTables = () => {
                     <img src="${t.qrDataUrl}" style="width:200px; height:200px; display:block; margin: 0 auto;" />
                     <h1 style="font-family:sans-serif; font-size:40px; margin:10px 0 0 0; font-weight:900;">${t.tableNumber}</h1>
                     <p style="font-family:sans-serif; margin-top:5px; font-size:15px">Pesan Dengan cara scan QR ini</p>
-                    <p style="font-family:sans-serif; margin-top:5px;">Cafe Futura</p>
+                    <p style="font-family:sans-serif; margin-top:5px;">Taki Coffee & Eatery</p>
                 </div>
             `).join('');
 
