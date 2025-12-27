@@ -55,7 +55,7 @@ const OrderHistory = () => {
         return () => unsub();
     }, [currentUser, authLoading]);
 
-    const handleFileSelect = (e, orderId) => {
+    const handleFileSelect = (e) => {
         const file = e.target.files[0];
         if (file) {
             if (file.size > 1 * 1024 * 1024) {
@@ -66,7 +66,6 @@ const OrderHistory = () => {
             reader.onloadend = () => {
                 setSelectedFile(reader.result);
                 setPreviewUrl(reader.result);
-                setActiveReuploadId(orderId);
             };
             reader.readAsDataURL(file);
         }
@@ -80,14 +79,14 @@ const OrderHistory = () => {
                 proofImage: selectedFile,
                 status: 'pending',
                 paymentStatus: 'unpaid',
-                note: 'Bukti diperbarui.'
+                note: 'Bukti pembayaran telah diupload ulang.'
             });
-            toast.success("Berhasil dikirim!");
+            toast.success("Bukti berhasil dikirim ulang!");
             setActiveReuploadId(null);
             setSelectedFile(null);
             setPreviewUrl(null);
         } catch (error) {
-            toast.error("Gagal mengirim.");
+            toast.error("Gagal mengirim ulang bukti.");
         } finally {
             setUploadingId(null);
         }
@@ -142,7 +141,7 @@ const OrderHistory = () => {
                     orders.map(order => {
                         const statusInfo = getStatusInfo(order.status, order.paymentStatus);
                         return (
-                            <div key={order.id} className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden mb-4">
+                            <div key={order.id} className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden mb-4 transition-all">
                                 <div className={`p-4 flex justify-between items-center ${statusInfo.color}`}>
                                     <div className="flex items-center gap-2">
                                         {statusInfo.icon}
@@ -162,32 +161,38 @@ const OrderHistory = () => {
                                             </div>
                                         ))}
                                     </div>
+
                                     {order.status === 'payment_rejected' && (
-                                        <div className="mt-2">
+                                        <div className="mt-2 space-y-3 bg-red-50 p-4 rounded-2xl border border-red-100">
+                                            <div className="flex items-center gap-2 text-red-600 mb-2">
+                                                <AlertTriangle size={16} />
+                                                <span className="text-[10px] font-black uppercase">Alasan: {order.note}</span>
+                                            </div>
+
                                             {activeReuploadId === order.id ? (
                                                 <div className="space-y-3">
-                                                    <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-2 bg-slate-50">
+                                                    <div className="relative border-2 border-dashed border-slate-300 rounded-2xl p-2 bg-white">
                                                         {previewUrl ? (
                                                             <img src={previewUrl} className="h-40 w-full object-cover rounded-xl shadow-sm" alt="Preview" />
                                                         ) : (
                                                             <div className="h-40 flex flex-col items-center justify-center text-slate-400">
                                                                 <Upload size={24} className="mb-2" />
-                                                                <span className="text-[10px] font-bold uppercase">Pilih Foto Baru</span>
+                                                                <span className="text-[10px] font-bold uppercase">Ketuk untuk Pilih Foto</span>
                                                             </div>
                                                         )}
                                                         <input
                                                             type="file"
                                                             accept="image/*"
                                                             className="absolute inset-0 opacity-0 cursor-pointer"
-                                                            onChange={(e) => handleFileSelect(e, order.id)}
+                                                            onChange={handleFileSelect}
                                                         />
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <button onClick={cancelReupload} className="flex-1 py-3 text-[10px] font-bold bg-gray-100 rounded-xl uppercase">Batal</button>
+                                                        <button onClick={cancelReupload} className="flex-1 py-3 text-[10px] font-bold bg-gray-200 text-gray-700 rounded-xl uppercase transition-all active:scale-95">Batal</button>
                                                         <button
                                                             onClick={() => handleReupload(order.id)}
                                                             disabled={uploadingId === order.id || !selectedFile}
-                                                            className="flex-2 py-3 px-4 text-[10px] font-bold bg-red-600 text-white rounded-xl uppercase flex items-center justify-center gap-2 disabled:bg-red-300"
+                                                            className="flex-2 py-3 px-4 text-[10px] font-bold bg-red-600 text-white rounded-xl uppercase flex items-center justify-center gap-2 disabled:bg-red-300 shadow-lg active:scale-95 transition-all"
                                                         >
                                                             {uploadingId === order.id ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                                                             Kirim Ulang
@@ -197,9 +202,9 @@ const OrderHistory = () => {
                                             ) : (
                                                 <button
                                                     onClick={() => setActiveReuploadId(order.id)}
-                                                    className="w-full py-4 bg-red-50 text-red-600 border-2 border-dashed border-red-200 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                                                    className="w-full py-4 bg-white text-red-600 border-2 border-red-200 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-red-50 transition-all active:scale-95"
                                                 >
-                                                    <Upload size={16} /> Update Bukti & Kirim Ulang
+                                                    <Upload size={16} /> Pilih Bukti Baru & Kirim
                                                 </button>
                                             )}
                                         </div>
