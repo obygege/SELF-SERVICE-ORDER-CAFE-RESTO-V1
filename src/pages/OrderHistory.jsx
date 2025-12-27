@@ -1,219 +1,239 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext';
-import { ShoppingBag, ArrowLeft, BellRing, XCircle, Loader2, Upload, CheckCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
+import { ArrowLeft, Clock, ShoppingBag, ChefHat, Loader2, BellRing, AlertCircle, XCircle, CheckCircle, AlertTriangle, Upload, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const OrderHistory = () => {
-    const { currentUser, loading: authLoading } = useAuth();
-    const navigate = useNavigate();
+    const { currentUser } = useAuth();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    // State untuk Re-upload Bukti Bayar
     const [uploadingId, setUploadingId] = useState(null);
-    const statusRef = useRef({});
-    const isFirstRun = useRef(true);
-    const audioRef = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'));
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [activeReuploadId, setActiveReuploadId] = useState(null);
 
     useEffect(() => {
-        if (authLoading) return;
-
-        if (!currentUser?.uid) {
+        if (!currentUser) {
             setLoading(false);
             return;
         }
+
+        setLoading(true);
 
         const q = query(
             collection(db, "orders"),
-            where("userId", "==", currentUser.uid),
+            where("customerEmail", "==", currentUser.email),
             orderBy("createdAt", "desc")
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const orderList = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-
-            if (!isFirstRun.current) {
-                orderList.forEach(order => {
-                    const oldStatus = statusRef.current[order.id];
-                    if (oldStatus && oldStatus !== order.status) {
-                        audioRef.current.play().catch(() => { });
-                        toast.success(`Update: Pesanan ${getStatusLabel(order.status).toUpperCase()}`, {
-                            position: 'top-center',
-                            icon: '🔔'
-                        });
-                    }
-                });
-            }
-
-            const currentStatuses = {};
-            orderList.forEach(o => {
-                currentStatuses[o.id] = o.status;
-            });
-            statusRef.current = currentStatuses;
-
-            setOrders(orderList);
-            setLoading(false);
-            isFirstRun.current = false;
-        }, (error) => {
-            console.error("Snapshot error:", error);
+        const unsub = onSnapshot(q, (snapshot) => {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setOrders(list);
             setLoading(false);
         });
 
-        return () => unsubscribe();
-    }, [currentUser?.uid, authLoading]);
+        return () => unsub();
+    }, [currentUser]);
 
-    const handleReupload = async (e, orderId) => {
+    // --- FUNGSI HANDLE FILE ---
+    const handleFileSelect = (e, orderId) => {
         const file = e.target.files[0];
-        if (!file) return;
-
-        if (file.size > 2 * 1024 * 1024) {
-            toast.error("File maksimal 2MB");
-            return;
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error("Ukuran file maksimal 2MB");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSelectedFile(reader.result);
+                setPreviewUrl(reader.result);
+                setActiveReuploadId(orderId);
+            };
+            reader.readAsDataURL(file);
         }
+    };
+
+    const handleReupload = async (orderId) => {
+        if (!selectedFile) return;
 
         setUploadingId(orderId);
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-            try {
-                await updateDoc(doc(db, "orders", orderId), {
-                    proofImage: reader.result,
-                    status: 'pending',
-                    paymentStatus: 'unpaid',
-                    note: 'Bukti diupload ulang oleh pelanggan'
-                });
-                toast.success("Bukti berhasil dikirim ulang!");
-            } catch (error) {
-                toast.error("Gagal update bukti");
-            } finally {
-                setUploadingId(null);
-            }
-        };
-        reader.readAsDataURL(file);
-    };
+        try {
+            await updateDoc(doc(db, "orders", orderId), {
+                proofImage: selectedFile,
+                status: 'pending',        // Reset status agar masuk ke antrian admin lagi
+                paymentStatus: 'unpaid',  // Reset status bayar
+                note: 'Bukti pembayaran telah diperbarui oleh customer (Revisi).'
+            });
 
-    const getStatusStyles = (status) => {
-        switch (status) {
-            case 'pending': return 'bg-gray-100 text-gray-500 border-gray-200';
-            case 'cooking': return 'bg-orange-100 text-orange-600 border-orange-200';
-            case 'ready': return 'bg-green-100 text-green-600 border-green-200 animate-pulse';
-            case 'completed': return 'bg-green-600 text-white border-green-700';
-            case 'payment_rejected': return 'bg-red-600 text-white border-red-700';
-            default: return 'bg-gray-100 text-gray-600 border-gray-200';
+            toast.success("Bukti pembayaran berhasil dikirim ulang!");
+            setActiveReuploadId(null);
+            setSelectedFile(null);
+            setPreviewUrl(null);
+        } catch (error) {
+            console.error(error);
+            toast.error("Gagal mengirim ulang bukti");
+        } finally {
+            setUploadingId(null);
         }
     };
 
-    const getStatusLabel = (s) => {
-        const labels = {
-            pending: 'Konfirmasi',
-            cooking: 'Dimasak',
-            ready: 'Siap',
-            completed: 'Selesai',
-            payment_rejected: 'Ditolak'
-        };
-        return labels[s] || s;
+    const cancelReupload = () => {
+        setActiveReuploadId(null);
+        setSelectedFile(null);
+        setPreviewUrl(null);
     };
 
-    if (authLoading) {
+    const getStatusInfo = (status, paymentStatus) => {
+        // Prioritas Cek Status
+        if (status === 'payment_rejected') return { label: 'PEMBAYARAN DITOLAK', color: 'bg-red-100 text-red-700 border-red-200', icon: <XCircle size={16} /> };
+        if (paymentStatus === 'paid') return { label: 'LUNAS / SELESAI', color: 'bg-green-100 text-green-700 border-green-200', icon: <CheckCircle size={16} /> };
+
+        switch (status) {
+            case 'pending': return { label: 'MENUNGGU KONFIRMASI', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: <Clock size={16} /> };
+            case 'cooking': return { label: 'SEDANG DISIAPKAN', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <ChefHat size={16} /> };
+            case 'ready': return { label: 'SIAP DIANTAR', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: <BellRing size={16} /> };
+            case 'completed': return { label: 'SELESAI', color: 'bg-gray-100 text-gray-600 border-gray-200', icon: <CheckCircle size={16} /> };
+            default: return { label: status, color: 'bg-gray-100', icon: <BellRing size={16} /> };
+        }
+    };
+
+    if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
                 <Loader2 className="animate-spin text-orange-600" size={40} />
+                <p className="text-gray-400 text-sm">Memuat riwayat...</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20 font-sans">
-            <header className="bg-white p-4 sticky top-0 z-30 shadow-sm flex items-center gap-4">
-                <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                    <ArrowLeft size={24} />
+        <div className="min-h-screen bg-gray-50 pb-20">
+            <header className="bg-white p-4 shadow-sm sticky top-0 z-10 flex items-center gap-4">
+                <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full">
+                    <ArrowLeft size={24} className="text-gray-700" />
                 </button>
-                <h1 className="text-xl font-black uppercase tracking-tight">Riwayat</h1>
+                <h1 className="font-bold text-lg">Riwayat Pesanan</h1>
             </header>
 
-            <div className="p-4 max-w-2xl mx-auto space-y-6">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                        <Loader2 className="animate-spin mb-4 text-orange-600" size={40} />
-                        <p className="font-bold uppercase tracking-widest text-[10px]">Memuat Riwayat...</p>
+            <div className="p-4 space-y-4">
+                {orders.length === 0 && (
+                    <div className="text-center py-12">
+                        <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                            <ShoppingBag size={40} />
+                        </div>
+                        <h3 className="font-bold text-gray-800">Belum ada pesanan</h3>
+                        <button onClick={() => navigate('/')} className="mt-6 bg-orange-600 text-white px-6 py-2 rounded-full font-bold text-sm hover:bg-orange-700 transition">
+                            Pesan Sekarang
+                        </button>
                     </div>
-                ) : orders.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-200 shadow-inner">
-                        <ShoppingBag size={80} className="mx-auto text-gray-100 mb-6" />
-                        <p className="text-gray-400 font-black uppercase text-sm">Belum ada pesanan.</p>
-                        <button onClick={() => navigate('/')} className="mt-6 text-orange-600 font-black uppercase text-xs">Mulai Pesan</button>
-                    </div>
-                ) : (
-                    orders.map((order) => (
-                        <div key={order.id} className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden relative">
-                            <div className="p-6">
-                                <div className="flex justify-between items-start mb-6">
+                )}
+
+                {orders.map(order => {
+                    const statusInfo = getStatusInfo(order.status, order.paymentStatus);
+                    const isRejected = order.status === 'payment_rejected';
+
+                    return (
+                        <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition hover:shadow-md">
+
+                            {/* HEADER CARD */}
+                            <div className={`p-3 flex justify-between items-center ${statusInfo.color} border-b`}>
+                                <div className="flex items-center gap-2">
+                                    {statusInfo.icon}
+                                    <span className="font-bold text-xs tracking-wide">{statusInfo.label}</span>
+                                </div>
+                                <span className="text-[10px] font-mono opacity-80 bg-white/50 px-1 rounded">{order.orderId}</span>
+                            </div>
+
+                            <div className="p-4">
+                                <div className="flex justify-between items-start mb-3">
                                     <div>
-                                        <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">TRX: {order.orderId}</p>
-                                        <h3 className="font-black text-xl text-slate-800 uppercase tracking-tighter">Meja {order.tableNumber}</h3>
+                                        <p className="text-xs text-gray-400 mb-1">Tanggal Pesan</p>
+                                        <p className="text-xs text-gray-600 font-medium">
+                                            {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('id-ID') : '-'}
+                                        </p>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase border tracking-widest shadow-sm ${getStatusStyles(order.status)}`}>
-                                            {getStatusLabel(order.status)}
-                                        </span>
-                                        {order.paymentStatus === 'paid' && order.status !== 'payment_rejected' && (
-                                            <span className="text-[9px] font-bold text-green-600 uppercase flex items-center gap-1">
-                                                <CheckCircle size={10} /> Terverifikasi
-                                            </span>
-                                        )}
+
+                                    <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded border ${order.diningOption === 'takeaway' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-orange-50 text-orange-700 border-orange-100'}`}>
+                                        {order.diningOption === 'takeaway' ? <ShoppingBag size={12} /> : <ChefHat size={12} />}
+                                        {order.diningOption === 'takeaway' ? 'AMBIL SENDIRI' : 'DINE IN'}
                                     </div>
                                 </div>
-                                <div className="space-y-2 mb-6">
-                                    {order.items?.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between text-xs font-bold uppercase text-slate-600">
-                                            <span>{item.qty}x {item.name}</span>
-                                            <span className="font-mono text-[10px]">Rp {(item.qty * item.price).toLocaleString()}</span>
+
+                                {/* LIST MENU */}
+                                <div className="space-y-2 mb-4 bg-gray-50 p-3 rounded-lg">
+                                    {order.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between text-sm text-gray-700">
+                                            <span className="line-clamp-1 w-3/4"><b>{item.qty}x</b> {item.name}</span>
+                                            <span>Rp {(item.price * item.qty).toLocaleString()}</span>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="flex justify-between items-end pt-5 border-t border-dashed">
-                                    <div>
-                                        <p className="text-[9px] font-black text-gray-400 uppercase">Total</p>
-                                        <p className="text-xl font-black text-orange-600 tracking-tighter">Rp {order.total?.toLocaleString()}</p>
-                                    </div>
-                                    <p className="text-[10px] font-bold text-gray-400">
-                                        {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                                    </p>
+
+                                {/* TOTAL HARGA */}
+                                <div className="flex justify-between items-center border-t pt-3 mb-2">
+                                    <span className="text-sm text-gray-500">Total Bayar</span>
+                                    <span className="font-bold text-lg text-orange-600">Rp {order.total?.toLocaleString()}</span>
                                 </div>
+
+                                {/* --- BAGIAN KHUSUS JIKA DITOLAK (RE-UPLOAD) --- */}
+                                {isRejected && (
+                                    <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4 animate-in fade-in">
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
+                                            <div>
+                                                <h4 className="font-bold text-red-700 text-sm">Pembayaran Ditolak Admin</h4>
+                                                <p className="text-xs text-red-600 mt-1">{order.note || "Bukti tidak sesuai. Silakan upload ulang."}</p>
+                                            </div>
+                                        </div>
+
+                                        {activeReuploadId === order.id ? (
+                                            <div className="bg-white p-3 rounded-lg border border-red-100">
+                                                {previewUrl && (
+                                                    <div className="mb-3 text-center">
+                                                        <img src={previewUrl} alt="Preview" className="h-32 mx-auto object-contain rounded border" />
+                                                        <p className="text-[10px] text-green-600 font-bold mt-1">Foto terpilih</p>
+                                                    </div>
+                                                )}
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={cancelReupload}
+                                                        className="flex-1 py-2 text-xs font-bold text-gray-500 bg-gray-100 rounded hover:bg-gray-200"
+                                                    >
+                                                        Batal
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleReupload(order.id)}
+                                                        disabled={uploadingId === order.id}
+                                                        className="flex-1 py-2 text-xs font-bold text-white bg-red-600 rounded hover:bg-red-700 flex justify-center items-center gap-1"
+                                                    >
+                                                        {uploadingId === order.id ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                                                        Kirim Ulang
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <label className="w-full bg-white border-2 border-dashed border-red-300 text-red-500 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer hover:bg-red-50 transition shadow-sm">
+                                                <Upload size={14} /> Upload Bukti Baru
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => handleFileSelect(e, order.id)}
+                                                />
+                                            </label>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-
-                            {order.status === 'ready' && (
-                                <div className="bg-green-500 text-white py-4 text-center text-[10px] font-black uppercase animate-pulse flex items-center justify-center gap-2">
-                                    <BellRing size={16} /> Pesanan Siap Di Meja!
-                                </div>
-                            )}
-
-                            {order.status === 'payment_rejected' && (
-                                <div className="bg-red-600 p-6 flex flex-col items-center gap-3">
-                                    <div className="flex items-center gap-2 text-white font-black uppercase text-xs">
-                                        <XCircle size={20} /> Pembayaran Ditolak
-                                    </div>
-                                    <p className="text-red-100 text-[10px] text-center font-bold uppercase mb-2">
-                                        {order.note || "Bukti bayar salah. Silakan upload ulang."}
-                                    </p>
-                                    <label className={`w-full max-w-xs bg-white text-red-600 py-3 rounded-2xl font-black text-[10px] uppercase text-center cursor-pointer shadow-xl active:scale-95 transition-all ${uploadingId === order.id ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                        {uploadingId === order.id ? 'Mengupload...' : 'Upload Ulang Bukti'}
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            disabled={uploadingId === order.id}
-                                            onChange={(e) => handleReupload(e, order.id)}
-                                        />
-                                    </label>
-                                </div>
-                            )}
                         </div>
-                    ))
-                )}
+                    );
+                })}
             </div>
         </div>
     );
