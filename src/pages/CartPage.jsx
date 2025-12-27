@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Plus, Minus, Loader2, Navigation, AlertTriangle, X, Upload, Download, User, Lock, QrCode, ScanLine } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Loader2, Navigation, AlertTriangle, X, Upload, QrCode } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CartPage = () => {
@@ -15,7 +15,6 @@ const CartPage = () => {
 
     const [customerName, setCustomerName] = useState(currentUser?.displayName || '');
     const [scannedTable, setScannedTable] = useState(null);
-    const [orderNote, setOrderNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showQrisModal, setShowQrisModal] = useState(false);
     const [uniqueCode, setUniqueCode] = useState(0);
@@ -101,9 +100,12 @@ const CartPage = () => {
         setIsSubmitting(true);
         try {
             const cartItems = Object.values(cart);
+
+            // PASTIKAN userId DAN customerEmail TERSIMPAN UNTUK DISINKRONKAN KE RIWAYAT
             await addDoc(collection(db, "orders"), {
                 orderId: `TRX-${Date.now().toString().slice(-6)}`,
                 userId: currentUser?.uid || 'guest',
+                customerEmail: currentUser?.email || '',
                 tableNumber: scannedTable,
                 customerName,
                 items: cartItems,
@@ -121,8 +123,10 @@ const CartPage = () => {
             }
 
             clearCart();
+            toast.success("Pesanan berhasil dikirim!");
             navigate('/history');
         } catch (error) {
+            console.error(error);
             toast.error("Gagal mengirim pesanan");
         } finally {
             setIsSubmitting(false);
@@ -134,65 +138,105 @@ const CartPage = () => {
     return (
         <div className="min-h-screen bg-gray-50 pb-36 font-sans">
             <header className="bg-white p-4 shadow-sm sticky top-0 z-10 flex items-center gap-4">
-                <button onClick={() => navigate('/')} className="p-2"><ArrowLeft /></button>
-                <h1 className="font-black text-lg uppercase">Checkout</h1>
+                <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
+                <h1 className="font-black text-lg uppercase tracking-tighter">Checkout</h1>
             </header>
 
             <div className="p-4 space-y-4">
                 <div className={`p-4 rounded-2xl flex items-center gap-3 border ${isLocationValid ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                    {checkingLoc ? <Loader2 className="animate-spin" /> : isLocationValid ? <Navigation /> : <AlertTriangle />}
-                    <span className="font-bold text-xs uppercase">{isLocationValid ? "Lokasi Valid" : "Lokasi Terlalu Jauh"}</span>
+                    {checkingLoc ? <Loader2 className="animate-spin" /> : isLocationValid ? <Navigation size={18} /> : <AlertTriangle size={18} />}
+                    <span className="font-bold text-[10px] uppercase tracking-wider">{isLocationValid ? "Lokasi Valid" : "Anda Diluar Jangkauan Cafe"}</span>
                 </div>
 
-                <div className="bg-white p-6 rounded-[2rem] border space-y-4">
-                    <input type="text" placeholder="Nama Pemesan" className="w-full bg-gray-50 p-4 rounded-2xl font-bold border-none outline-orange-500" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-                    <div className={`p-4 rounded-2xl flex items-center gap-3 border ${scannedTable ? 'bg-slate-900 text-white' : 'bg-red-50 text-red-600'}`}>
-                        <QrCode size={20} />
-                        <span className="font-black uppercase text-sm">{scannedTable ? `Meja ${scannedTable}` : "Belum Scan Meja"}</span>
+                <div className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Nama Pelanggan</label>
+                        <input type="text" placeholder="Masukkan nama Anda" className="w-full bg-gray-50 p-4 rounded-2xl font-bold border-none outline-orange-500 text-sm" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                    </div>
+
+                    <div className={`p-4 rounded-2xl flex items-center justify-between border ${scannedTable ? 'bg-slate-900 text-white' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                        <div className="flex items-center gap-3">
+                            <QrCode size={20} />
+                            <span className="font-black uppercase text-xs tracking-widest">{scannedTable ? `MEJA ${scannedTable}` : "SCAN QR MEJA DAHULU"}</span>
+                        </div>
+                        {!scannedTable && <AlertTriangle size={16} className="animate-pulse" />}
                     </div>
                 </div>
 
-                <div className="bg-white rounded-[2rem] border overflow-hidden">
-                    <div className="p-4 bg-gray-50 border-b font-black text-xs uppercase text-gray-400">Item Pesanan</div>
-                    {Object.values(cart).map(item => (
-                        <div key={item.id} className="p-4 flex gap-4 items-center border-b last:border-none">
-                            <img src={item.image} className="w-12 h-12 rounded-xl object-cover" alt="" />
-                            <div className="flex-1">
-                                <h4 className="font-bold text-sm uppercase">{item.name}</h4>
-                                <p className="text-xs font-bold text-orange-600">{item.qty}x Rp {item.price.toLocaleString()}</p>
+                <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden">
+                    <div className="p-4 bg-gray-50 border-b font-black text-[10px] uppercase text-gray-400 tracking-widest">Ringkasan Pesanan</div>
+                    <div className="max-h-60 overflow-y-auto">
+                        {Object.values(cart).map(item => (
+                            <div key={item.id} className="p-4 flex gap-4 items-center border-b last:border-none">
+                                <img src={item.image} className="w-12 h-12 rounded-xl object-cover border" alt="" />
+                                <div className="flex-1">
+                                    <h4 className="font-black text-xs uppercase text-slate-800">{item.name}</h4>
+                                    <p className="text-[10px] font-bold text-orange-600 tracking-tighter">{item.qty} x Rp {item.price.toLocaleString()}</p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            <div className="fixed bottom-0 w-full bg-white p-6 border-t rounded-t-[2.5rem] shadow-2xl z-20">
-                <div className="flex justify-between items-center mb-4">
-                    <span className="text-xs font-black text-gray-400 uppercase">Total Bayar</span>
-                    <span className="text-xl font-black">Rp {totalWithCode.toLocaleString()}</span>
+            <div className="fixed bottom-0 w-full bg-white p-6 border-t rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
+                <div className="flex justify-between items-center mb-4 px-2">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pembayaran</span>
+                    <div className="text-right">
+                        <span className="text-xl font-black text-slate-900">Rp {totalWithCode.toLocaleString()}</span>
+                        <p className="text-[8px] text-orange-500 font-bold uppercase italic">Inc. Kode Unik {uniqueCode}</p>
+                    </div>
                 </div>
-                <button onClick={handlePreCheck} disabled={isSubmitting || !isLocationValid} className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-xl active:scale-95 disabled:bg-gray-300 transition-all">
-                    Proses Pembayaran
+                <button
+                    onClick={handlePreCheck}
+                    disabled={isSubmitting || !isLocationValid || !scannedTable}
+                    className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-xl shadow-orange-100 active:scale-95 disabled:bg-gray-200 disabled:shadow-none transition-all tracking-[0.2em]"
+                >
+                    Konfirmasi Pesanan
                 </button>
             </div>
 
             {showQrisModal && (
-                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-[3rem] w-full max-w-md p-8 relative overflow-y-auto max-h-[90vh]">
-                        <button onClick={() => setShowQrisModal(false)} className="absolute top-6 right-6 p-2 bg-gray-100 rounded-full"><X size={20} /></button>
-                        <h3 className="font-black text-xs uppercase text-gray-400 mb-6">Scan QRIS</h3>
-                        <img src="/assets/qris.png" className="w-full rounded-3xl border-4 border-slate-900 mb-6" alt="QRIS" />
-                        <div className="bg-orange-50 p-6 rounded-3xl text-center mb-6">
-                            <p className="text-[10px] font-bold text-orange-400 uppercase">Total Transfer</p>
-                            <p className="text-2xl font-black">Rp {totalWithCode.toLocaleString()}</p>
+                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3rem] w-full max-w-md p-8 relative overflow-y-auto max-h-[95vh] shadow-2xl">
+                        <button onClick={() => setShowQrisModal(false)} className="absolute top-6 right-6 p-2 bg-gray-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"><X size={20} /></button>
+
+                        <div className="text-center mb-6">
+                            <h3 className="font-black text-xs uppercase text-slate-400 tracking-[0.2em] mb-4">Pembayaran Digital</h3>
+                            <img src="/assets/qris.png" className="w-48 h-48 mx-auto rounded-3xl border-4 border-slate-900 shadow-xl" alt="QRIS" />
                         </div>
-                        <div className="border-2 border-dashed rounded-3xl p-6 text-center relative mb-6">
-                            <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                            {previewUrl ? <img src={previewUrl} className="h-32 mx-auto object-contain" /> : <div className="text-gray-400 font-bold text-xs uppercase"><Upload className="mx-auto mb-2" /> Upload Bukti</div>}
+
+                        <div className="bg-orange-50 p-6 rounded-3xl text-center mb-6 border border-orange-100 shadow-inner">
+                            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Transfer Tepat Sesuai Nominal</p>
+                            <p className="text-3xl font-black text-slate-900 tracking-tighter">Rp {totalWithCode.toLocaleString()}</p>
                         </div>
-                        <button onClick={submitToFirebase} disabled={isSubmitting} className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-lg">
-                            {isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : "Konfirmasi Pembayaran"}
-                        </button>
+
+                        <div className="space-y-4">
+                            <div className="relative group">
+                                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                                <div className={`border-2 border-dashed rounded-3xl p-8 text-center transition-all ${previewUrl ? 'border-green-400 bg-green-50' : 'border-slate-200 hover:border-orange-400'}`}>
+                                    {previewUrl ? (
+                                        <div className="space-y-2">
+                                            <img src={previewUrl} className="h-32 mx-auto object-contain rounded-lg shadow-sm" alt="Bukti" />
+                                            <p className="text-[9px] font-black text-green-600 uppercase">Bukti Terlampir</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-slate-400 font-black text-[10px] uppercase tracking-widest flex flex-col items-center gap-3">
+                                            <Upload size={32} className="text-slate-300" />
+                                            Upload Bukti Bayar
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={submitToFirebase}
+                                disabled={isSubmitting || !proofImage}
+                                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 disabled:bg-slate-200 transition-all tracking-widest"
+                            >
+                                {isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : "Kirim Sekarang"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
