@@ -45,11 +45,16 @@ const OrderHistory = () => {
                 where("customerName", "==", currentUser.displayName || ""),
                 orderBy("createdAt", "desc")
             );
-            onSnapshot(qFallback, (snap) => {
+
+            const unsubFallback = onSnapshot(qFallback, (snap) => {
                 const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setOrders(list);
                 setFetching(false);
+            }, (err) => {
+                setFetching(false);
             });
+
+            return () => unsubFallback();
         });
 
         return () => unsub();
@@ -111,7 +116,7 @@ const OrderHistory = () => {
                 default: return { label: 'PROSES', color: 'bg-green-600 text-white', icon: <Clock size={14} /> };
             }
         } else {
-            return { label: 'MENUNGGU KONFIRMASI', color: 'bg-yellow-400 text-yellow-900', icon: <Clock size={14} /> };
+            return { label: 'VERIFIKASI', color: 'bg-yellow-400 text-yellow-900', icon: <Clock size={14} /> };
         }
     };
 
@@ -161,9 +166,9 @@ const OrderHistory = () => {
                                 <div className="p-6">
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Pembayaran</p>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pembayaran</p>
                                             <span className={`text-xs font-black uppercase ${isPaid ? 'text-green-600' : 'text-red-600'}`}>
-                                                {isPaid ? 'Lunas' : 'Belum Dikonfirmasi'}
+                                                {isPaid ? 'Lunas' : 'Menunggu'}
                                             </span>
                                         </div>
                                         <div className="text-right">
@@ -190,7 +195,7 @@ const OrderHistory = () => {
                                             <div className="flex items-start gap-4 mb-5">
                                                 <div className="p-2 bg-red-100 rounded-xl text-red-600"><AlertTriangle size={20} /></div>
                                                 <div>
-                                                    <h4 className="font-black text-red-700 text-xs uppercase tracking-tight">Pembayaran Gagal</h4>
+                                                    <h4 className="font-black text-red-700 text-xs uppercase tracking-tight">Ditolak</h4>
                                                     <p className="text-[10px] font-bold text-red-500 mt-1 leading-relaxed">{order.note}</p>
                                                 </div>
                                             </div>
