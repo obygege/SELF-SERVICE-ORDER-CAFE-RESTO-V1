@@ -39,12 +39,6 @@ const OrderHistory = () => {
             setOrders(list);
             setFetching(false);
         }, (error) => {
-            console.error("Firestore Error:", error);
-
-            if (error.code === 'failed-precondition') {
-                toast.error("Sistem sedang menyiapkan database. Tunggu 1 menit.");
-            }
-
             const qSimple = query(
                 collection(db, "orders"),
                 where("userId", "==", currentUser.uid)
@@ -132,7 +126,9 @@ const OrderHistory = () => {
     return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans">
             <header className="bg-white p-4 shadow-sm sticky top-0 z-10 flex items-center gap-4">
-                <button onClick={() => navigate('/')} className="p-2"><ArrowLeft size={24} /></button>
+                <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full transition-all">
+                    <ArrowLeft size={24} className="text-slate-900" />
+                </button>
                 <h1 className="font-black text-lg uppercase tracking-tighter">Riwayat Pesanan</h1>
             </header>
 
@@ -170,14 +166,14 @@ const OrderHistory = () => {
                                         <div className="mt-2">
                                             {activeReuploadId === order.id ? (
                                                 <div className="space-y-3">
-                                                    {previewUrl && <img src={previewUrl} className="h-32 w-full object-cover rounded-xl" />}
+                                                    {previewUrl && <img src={previewUrl} className="h-32 w-full object-cover rounded-xl shadow-sm border" alt="Preview" />}
                                                     <div className="flex gap-2">
                                                         <button onClick={cancelReupload} className="flex-1 py-3 text-[10px] font-bold bg-gray-100 rounded-xl">Batal</button>
-                                                        <button onClick={() => handleReupload(order.id)} className="flex-2 py-3 text-[10px] font-bold bg-red-600 text-white rounded-xl">Kirim Ulang</button>
+                                                        <button onClick={() => handleReupload(order.id)} className="flex-2 py-3 text-[10px] font-bold bg-red-600 text-white rounded-xl shadow-md">Kirim Ulang</button>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <button onClick={() => { setActiveReuploadId(order.id) }} className="w-full py-3 bg-red-50 text-red-600 border-2 border-dashed border-red-200 rounded-xl text-[10px] font-bold">UPLOAD ULANG BUKTI</button>
+                                                <button onClick={() => { setActiveReuploadId(order.id) }} className="w-full py-3 bg-red-50 text-red-600 border-2 border-dashed border-red-200 rounded-xl text-[10px] font-black uppercase tracking-wider">UPLOAD ULANG BUKTI</button>
                                             )}
                                             <input type="file" id={`file-${order.id}`} accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, order.id)} />
                                         </div>

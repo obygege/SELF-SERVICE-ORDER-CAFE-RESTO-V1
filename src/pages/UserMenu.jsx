@@ -115,7 +115,7 @@ const UserMenu = () => {
                 <div className="p-4">
                     <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
                         <div className="relative z-10">
-                            <h2 className="text-2xl font-bold mb-1">Lapar Banget?</h2>
+                            <h2 className="text-2xl font-bold mb-1">Pilih Menu Kesukaanmu!!</h2>
                             <p className="text-orange-100 text-sm opacity-90">Pesan sekarang, langsung kami antar!</p>
                         </div>
                         <div className="absolute right-[-20px] bottom-[-20px] opacity-20 bg-white rounded-full w-32 h-32 blur-xl"></div>
