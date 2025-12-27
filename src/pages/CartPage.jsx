@@ -3,8 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Plus, Minus, Loader2, Navigation, AlertTriangle, X, Upload, Download, User, Lock, QrCode, ScanLine } from 'lucide-react';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { ArrowLeft, Plus, Minus, CreditCard, MapPin, Loader2, Navigation, AlertTriangle, X, Upload, Download, Image as ImageIcon, User, AlertCircle, Armchair, Lock, QrCode, ScanLine } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CartPage = () => {
@@ -18,7 +18,9 @@ const CartPage = () => {
     const [orderNote, setOrderNote] = useState('');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCheckingTable, setIsCheckingTable] = useState(false);
     const [showQrisModal, setShowQrisModal] = useState(false);
+    const [showTableOccupiedModal, setShowTableOccupiedModal] = useState(false);
 
     const [uniqueCode, setUniqueCode] = useState(0);
     const [proofImage, setProofImage] = useState(null);
@@ -105,18 +107,56 @@ const CartPage = () => {
         }
     };
 
-    const handlePreCheck = () => {
+    const checkTableAvailability = async (tableNumber) => {
+        try {
+            const q = query(
+                collection(db, "orders"),
+                where("tableNumber", "==", tableNumber),
+                where("status", "in", ["pending", "cooking", "ready"])
+            );
+            const snapshot = await getDocs(q);
+
+            const activeOrdersFromOthers = snapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.userId !== currentUser.uid;
+            });
+
+            return activeOrdersFromOthers.length > 0;
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const handlePreCheck = async () => {
         if (subTotal <= 0) return;
         if (!customerName.trim()) { toast.error("Mohon isi Nama Anda"); return; }
+
         if (!scannedTable) {
             toast.error("Wajib Scan QR Code di atas meja!", { icon: '📷' });
             return;
         }
+
         if (!isLocationValid && storeConfig && !storeConfig.bypass) {
             toast.error("Lokasi Anda terlalu jauh dari Cafe");
             return;
         }
-        setShowQrisModal(true);
+
+        setIsCheckingTable(true);
+        try {
+            const isOccupiedByOthers = await checkTableAvailability(scannedTable);
+            setIsCheckingTable(false);
+
+            if (isOccupiedByOthers) {
+                setShowTableOccupiedModal(true);
+                return;
+            }
+
+            setShowQrisModal(true);
+
+        } catch (error) {
+            setIsCheckingTable(false);
+            toast.error("Gagal mengecek status meja");
+        }
     };
 
     const submitToFirebase = async () => {
@@ -137,9 +177,9 @@ const CartPage = () => {
                 customerName: customerName,
                 customerEmail: currentUser?.email || '-',
                 items: cartItems,
-                subTotal: Number(subTotal),
-                uniqueCode: Number(uniqueCode),
-                total: Number(totalWithCode),
+                subTotal: subTotal,
+                uniqueCode: uniqueCode,
+                total: totalWithCode,
                 paymentMethod: 'QRIS Transfer',
                 proofImage: proofImage,
                 diningOption: 'dine-in',
@@ -162,7 +202,7 @@ const CartPage = () => {
             navigate('/history');
         } catch (error) {
             console.error("Submit Error: ", error);
-            toast.error("Gagal mengirim pesanan.");
+            toast.error("Gagal mengirim pesanan. Silakan coba lagi.");
         } finally {
             setIsSubmitting(false);
         }
@@ -171,13 +211,13 @@ const CartPage = () => {
     const downloadQris = () => {
         const link = document.createElement('a');
         link.href = '/assets/qris.png';
-        link.download = 'QRIS-Taki-Coffee.png';
+        link.download = 'QRIS-Cafe-Futura.png';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    if (subTotal === 0) return <div className="p-10 text-center font-sans">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
+    if (subTotal === 0) return <div className="p-10 text-center">Keranjang Kosong <button onClick={() => navigate('/')} className="block mx-auto mt-4 text-orange-600 font-bold">Belanja Dulu</button></div>;
 
     return (
         <div className="min-h-screen bg-gray-50 pb-36 font-sans">
@@ -196,7 +236,9 @@ const CartPage = () => {
 
                 <div className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
                     <div className="p-6 border-b border-gray-100 bg-slate-900 text-white">
-                        <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">Daftar Pesanan</h3>
+                        <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                             Daftar Pesanan
+                        </h3>
                     </div>
                     <div className="divide-y divide-gray-50">
                         {Object.values(cart).map(item => (
@@ -220,6 +262,7 @@ const CartPage = () => {
 
                 <div className="bg-white p-6 rounded-[2rem] shadow-sm border space-y-5">
                     <h3 className="font-black text-xs text-slate-400 uppercase tracking-[0.2em] mb-2">Informasi Meja</h3>
+
                     <div>
                         <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 mb-1">Nama Pemesan</label>
                         <div className="flex items-center gap-3 border-2 border-gray-50 rounded-2xl px-4 py-3 bg-gray-50 focus-within:bg-white focus-within:border-orange-500 transition-all">
@@ -276,14 +319,29 @@ const CartPage = () => {
                 </div>
                 <button
                     onClick={handlePreCheck}
-                    disabled={isSubmitting || checkingLoc || !isLocationValid}
+                    disabled={isSubmitting || checkingLoc || !isLocationValid || isCheckingTable}
                     className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl flex justify-center items-center gap-3 transition-all active:scale-95
-                        ${(isSubmitting || checkingLoc) ? 'bg-slate-300 cursor-wait' : !isLocationValid ? 'bg-red-500 text-white' : !scannedTable ? 'bg-slate-300 text-slate-500' : 'bg-orange-600 text-white hover:bg-orange-700'}
+                        ${(isSubmitting || checkingLoc || isCheckingTable) ? 'bg-slate-300 cursor-wait' : !isLocationValid ? 'bg-red-500 text-white' : !scannedTable ? 'bg-slate-300 text-slate-500' : 'bg-orange-600 text-white hover:bg-orange-700'}
                     `}
                 >
-                    {isSubmitting ? <><Loader2 className="animate-spin" size={20} /> Memproses...</> : 'Proses Pembayaran'}
+                    {isSubmitting || isCheckingTable ? <><Loader2 className="animate-spin" size={20} /> Memproses...</> : 'Proses Pembayaran'}
                 </button>
             </div>
+
+            {showTableOccupiedModal && (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-6 backdrop-blur-sm">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 text-center shadow-2xl border border-white">
+                        <div className="bg-red-50 p-6 rounded-3xl w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                            <Armchair size={40} className="text-red-500" />
+                        </div>
+                        <h3 className="font-black text-xl text-slate-900 mb-3 uppercase tracking-tighter">Meja Terisi</h3>
+                        <p className="text-xs font-bold text-slate-500 mb-8 leading-relaxed uppercase tracking-wide">
+                            Maaf, Meja <span className="text-red-600 font-black">{scannedTable}</span> sedang digunakan. Silakan pindah meja dan scan kembali.
+                        </p>
+                        <button onClick={() => setShowTableOccupiedModal(false)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest">OK, Mengerti</button>
+                    </div>
+                </div>
+            )}
 
             {showQrisModal && (
                 <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
@@ -292,10 +350,10 @@ const CartPage = () => {
                             <h3 className="font-black uppercase tracking-widest text-xs text-slate-400">Scan QRIS Pembayaran</h3>
                             <button onClick={() => setShowQrisModal(false)} className="p-2 bg-gray-50 rounded-full"><X size={20} className="text-slate-400" /></button>
                         </div>
-
+                        
                         <div className="relative group w-full flex justify-center mb-8">
                             <div className="bg-white p-3 border-4 border-slate-900 rounded-[2rem] shadow-2xl">
-                                <img src="/assets/qris.png" alt="QRIS" className="h-64 w-64 object-contain" />
+                                <img src="/assets/qris.png" alt="QRIS" className="h-64 w-64 object-contain" onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=QRIS+EMPTY'} />
                             </div>
                             <button onClick={downloadQris} className="absolute -bottom-4 bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl">
                                 <Download size={14} /> Simpan QRIS
@@ -305,6 +363,7 @@ const CartPage = () => {
                         <div className="text-center w-full mb-8 bg-orange-50 p-6 rounded-[2rem] border border-orange-100">
                             <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Transfer Persis :</p>
                             <div className="text-4xl font-black text-slate-900 tracking-tighter">Rp {totalWithCode.toLocaleString()}</div>
+                            <div className="mt-2 text-[10px] font-bold text-orange-600">Terima kasih atas pesanannya!</div>
                         </div>
 
                         <div className="w-full mb-8">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, requestForToken, onMessageListener } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { Clock, ShoppingBag, ArrowLeft, BellRing, XCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,40 +16,6 @@ const OrderHistory = () => {
     const audioRef = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'));
 
     useEffect(() => {
-        if (!currentUser) return;
-
-        const setupNotifications = async () => {
-            try {
-                const token = await requestForToken();
-                if (token) {
-                    await updateDoc(doc(db, "users", currentUser.uid), {
-                        fcmToken: token
-                    });
-                }
-            } catch (err) {
-                console.warn("Push notifications disabled");
-            }
-        };
-        setupNotifications();
-
-        const startMessageListener = async () => {
-            try {
-                const payload = await onMessageListener();
-                if (payload) {
-                    toast.success(`${payload.notification.title}: ${payload.notification.body}`, {
-                        icon: '🔔',
-                        duration: 5000
-                    });
-                    audioRef.current.play().catch(() => { });
-                }
-            } catch (err) {
-                console.log("Messaging not supported");
-            }
-        };
-        startMessageListener();
-    }, [currentUser]);
-
-    useEffect(() => {
         if (!currentUser) {
             setLoading(false);
             return;
@@ -62,7 +28,10 @@ const OrderHistory = () => {
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const orderList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const orderList = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
 
             if (!isFirstRun.current) {
                 orderList.forEach(order => {
@@ -74,7 +43,9 @@ const OrderHistory = () => {
             }
 
             const newStatuses = {};
-            orderList.forEach(o => { newStatuses[o.id] = o.status; });
+            orderList.forEach(o => {
+                newStatuses[o.id] = o.status;
+            });
 
             setPrevStatuses(newStatuses);
             setOrders(orderList);
@@ -83,7 +54,6 @@ const OrderHistory = () => {
         }, (error) => {
             console.error("Snapshot error:", error);
             setLoading(false);
-            toast.error("Gagal memuat data pesanan");
         });
 
         return () => unsubscribe();
