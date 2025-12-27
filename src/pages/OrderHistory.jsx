@@ -11,12 +11,12 @@ const OrderHistory = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [prevStatuses, setPrevStatuses] = useState({});
+    const prevStatuses = useRef({});
     const isFirstRun = useRef(true);
     const audioRef = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'));
 
     useEffect(() => {
-        if (!currentUser) {
+        if (!currentUser?.uid) {
             setLoading(false);
             return;
         }
@@ -35,7 +35,7 @@ const OrderHistory = () => {
 
             if (!isFirstRun.current) {
                 orderList.forEach(order => {
-                    const oldStatus = prevStatuses[order.id];
+                    const oldStatus = prevStatuses.current[order.id];
                     if (oldStatus && oldStatus !== order.status) {
                         handleLocalNotification(order);
                     }
@@ -47,7 +47,7 @@ const OrderHistory = () => {
                 newStatuses[o.id] = o.status;
             });
 
-            setPrevStatuses(newStatuses);
+            prevStatuses.current = newStatuses;
             setOrders(orderList);
             setLoading(false);
             isFirstRun.current = false;
@@ -57,7 +57,7 @@ const OrderHistory = () => {
         });
 
         return () => unsubscribe();
-    }, [currentUser, prevStatuses]);
+    }, [currentUser?.uid]);
 
     const handleLocalNotification = (order) => {
         audioRef.current.play().catch(() => { });
@@ -88,7 +88,7 @@ const OrderHistory = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
+        <div className="min-h-screen bg-gray-50 pb-20 font-sans">
             <header className="bg-white p-4 sticky top-0 z-30 shadow-sm flex items-center gap-4">
                 <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                     <ArrowLeft size={24} />
