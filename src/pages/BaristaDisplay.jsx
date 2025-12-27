@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
-import { useReactToPrint } from 'react-to-print';
 import { useAuth } from '../context/AuthContext';
-import { Coffee, Clock, CheckCircle, PlayCircle, Printer, Volume2, X, Bell, LogOut } from 'lucide-react';
+import { Coffee, Clock, CheckCircle, PlayCircle, Printer, X, Bell, LogOut, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const isDrinkCategory = (category) => {
@@ -12,90 +11,15 @@ const isDrinkCategory = (category) => {
     return ['minuman', 'drink', 'coffee', 'kopi', 'tea', 'teh', 'ice', 'jus', 'juice', 'squash', 'latte', 'non-coffee', 'water', 'mineral', 'air'].some(k => lower.includes(k));
 };
 
-const BaristaReceipt = React.forwardRef(({ order }, ref) => {
-    if (!order) return null;
-    const myItems = order.items.filter(i => isDrinkCategory(i.category));
-    if (myItems.length === 0) return null;
-
-    const dateObj = order.createdAt ? new Date(order.createdAt.seconds * 1000) : new Date();
-    const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-
-    return (
-        <div ref={ref} className="bg-white text-black font-mono p-2 mx-auto" style={{ width: '58mm', fontSize: '12px' }}>
-            <style media="print">{`@page { size: 58mm auto; margin: 0; } body { margin: 0; padding: 0; font-family: monospace; }`}</style>
-
-            <div className="text-center border-b-2 border-black pb-2 mb-2">
-                <h2 className="font-black text-lg uppercase tracking-tighter">ORDER BAR (DRINK)</h2>
-                <div className="flex justify-between text-[10px] mt-1 px-1 font-bold">
-                    <span>{dateStr}</span>
-                    <span>{timeStr}</span>
-                </div>
-            </div>
-
-            <div className="space-y-1 mb-2 px-1 text-[11px]">
-                <div className="flex justify-between italic text-[10px]">
-                    <span>Admin:</span>
-                    <span className="font-bold uppercase">Barista Staff</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Pelanggan:</span>
-                    <span className="font-bold uppercase truncate max-w-[100px]">{order.customerName}</span>
-                </div>
-                <div className="text-center py-2 border-y border-black my-1">
-                    <span className="text-2xl font-black">MEJA {order.tableNumber}</span>
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-3 mt-2 px-1">
-                {myItems.map((item, i) => (
-                    <div key={i} className="leading-tight border-b border-gray-200 pb-1 last:border-0">
-                        <div className="flex items-start gap-2">
-                            <span className="font-black text-xl">{item.qty}x</span>
-                            <span className="font-bold text-[13px] uppercase">{item.name}</span>
-                        </div>
-                        {item.note && (
-                            <div className="ml-6 text-[10px] bg-black text-white px-1 inline-block mt-1 font-bold uppercase">
-                                * {item.note}
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-
-            {order.note && (
-                <div className="mt-3 p-1 border-2 border-black text-[10px] font-black uppercase text-center leading-none">
-                    Catatan Order: {order.note}
-                </div>
-            )}
-
-            <div className="mt-4 pt-2 border-t border-black text-center text-[9px] font-bold">
-                ID: {order.orderId}
-            </div>
-        </div>
-    );
-});
-
 const BaristaDisplay = () => {
     const { logout } = useAuth();
     const [orders, setOrders] = useState([]);
-    const [printingOrder, setPrintingOrder] = useState(null);
-    const [previewOrder, setPreviewOrder] = useState(null);
+    const [selectedOrder, setSelectedOrder] = useState(null);
     const [lastProcessedId, setLastProcessedId] = useState(null);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const [previewOrder, setPreviewOrder] = useState(null);
 
     const audioRef = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'));
-    const componentRef = useRef();
-
-    const handlePrint = useReactToPrint({
-        content: () => componentRef.current,
-        onAfterPrint: () => {
-            setPrintingOrder(null);
-        }
-    });
-
-    useEffect(() => {
-        if (printingOrder) handlePrint();
-    }, [printingOrder, handlePrint]);
 
     useEffect(() => {
         const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
@@ -123,6 +47,17 @@ const BaristaDisplay = () => {
         return () => unsub();
     }, [lastProcessedId]);
 
+    const handleNativePrint = (order) => {
+        setSelectedOrder(order);
+        setIsPrinting(true);
+        setPreviewOrder(null);
+        setTimeout(() => {
+            window.print();
+            setIsPrinting(false);
+            setSelectedOrder(null);
+        }, 500);
+    };
+
     const updateStatus = async (id, newStatus) => {
         try {
             await updateDoc(doc(db, "orders", id), { status: newStatus });
@@ -137,12 +72,83 @@ const BaristaDisplay = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-4 font-sans">
-            <div style={{ display: 'none' }}>
-                <BaristaReceipt ref={componentRef} order={printingOrder || previewOrder} />
+        <div className="min-h-screen bg-slate-50 p-4 font-sans pb-20">
+            <style>
+                {`
+                @media print {
+                    body * { visibility: hidden; }
+                    #barista-print-receipt, #barista-print-receipt * { visibility: visible; }
+                    #barista-print-receipt {
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        top: 0;
+                        margin: 0 auto !important;
+                        width: 46mm;
+                        padding: 0;
+                        background: white;
+                        display: block !important;
+                    }
+                    @page { 
+                        size: 58mm auto; 
+                        margin: 0; 
+                    }
+                    html, body { height: auto; overflow: visible; }
+                }
+                `}
+            </style>
+
+            {/* AREA STRUK BARISTA (ASLI & RAPI) */}
+            <div id="barista-print-receipt" className="hidden print:block bg-white text-black font-mono" style={{ width: '42mm', padding: '0px 2mm', fontSize: '11px', lineHeight: '1.1' }}>
+                {selectedOrder && (
+                    <div className="flex flex-col w-full text-center">
+                        <div style={{ borderBottom: '1px solid black', paddingBottom: '2mm', marginBottom: '2mm', marginTop: '2mm' }}>
+                            <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>Bar (Drink)</h2>
+                            <p style={{ fontSize: '8px', margin: '0', marginTop: '1mm' }}>
+                                {selectedOrder.createdAt ? new Date(selectedOrder.createdAt.seconds * 1000).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </p>
+                        </div>
+
+                        <div style={{ fontSize: '10px', textAlign: 'left', marginBottom: '2mm' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Admin:</span><span style={{ fontWeight: 'bold' }}>Barista Staff</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cust:</span><span style={{ fontWeight: 'bold' }}>{selectedOrder.customerName}</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Trx:</span><span>{selectedOrder.orderId}</span></div>
+                        </div>
+
+                        <div style={{ borderY: '1px solid black', padding: '2mm 0', margin: '2mm 0', textAlign: 'center' }}>
+                            <span style={{ fontSize: '20px', fontWeight: '900' }}>MEJA {selectedOrder.tableNumber}</span>
+                        </div>
+
+                        <div style={{ width: '100%', textAlign: 'left' }}>
+                            {selectedOrder.items.filter(i => isDrinkCategory(i.category)).map((item, i) => (
+                                <div key={i} style={{ marginBottom: '3mm', borderBottom: '1px solid #eee', paddingBottom: '1mm' }}>
+                                    <div style={{ display: 'flex', gap: '3mm', alignItems: 'start' }}>
+                                        <span style={{ fontWeight: '900', fontSize: '16px' }}>{item.qty}x</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase' }}>{item.name}</span>
+                                            {item.note && <span style={{ fontSize: '10px', fontStyle: 'italic', backgroundColor: '#000', color: '#fff', padding: '0 2px', marginTop: '1mm' }}>* {item.note}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {selectedOrder.note && (
+                            <div style={{ marginTop: '2mm', padding: '1mm', border: '1px solid black', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
+                                Catatan Order: {selectedOrder.note}
+                            </div>
+                        )}
+
+                        <div style={{ textAlign: 'center', marginTop: '4mm', fontSize: '9px', borderTop: '1px solid black', paddingTop: '2mm' }}>
+                            SEGERA DIRACIK
+                        </div>
+                        <div style={{ height: '10mm' }}></div>
+                    </div>
+                )}
             </div>
 
-            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+            {/* MONITOR UI */}
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 no-print">
                 <div className="flex items-center gap-5">
                     <div className="w-16 h-16 rounded-3xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
                         <Coffee size={32} />
@@ -157,13 +163,13 @@ const BaristaDisplay = () => {
                         <p className="text-3xl font-black text-slate-900 leading-none">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sistem Aktif</p>
                     </div>
-                    <button onClick={handleLogout} className="w-14 h-14 flex items-center justify-center bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all duration-300 shadow-sm border border-red-100">
+                    <button onClick={handleLogout} className="w-14 h-14 flex items-center justify-center bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all duration-300 border border-red-100">
                         <LogOut size={24} />
                     </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 no-print">
                 {orders.map(order => {
                     const myItems = order.items.filter(i => isDrinkCategory(i.category));
                     const isCooking = order.status === 'cooking';
@@ -171,7 +177,6 @@ const BaristaDisplay = () => {
 
                     return (
                         <div key={order.id} className={`flex flex-col rounded-[2.5rem] bg-white border-2 transition-all duration-500 shadow-sm ${isReady ? 'border-green-500 ring-4 ring-green-50' : isCooking ? 'border-blue-500 scale-[1.02] shadow-xl z-10' : 'border-slate-100'}`}>
-
                             <div className={`p-6 rounded-t-[2.3rem] flex justify-between items-center ${isReady ? 'bg-green-500 text-white' : isCooking ? 'bg-blue-500 text-white' : 'bg-slate-900 text-white'}`}>
                                 <div>
                                     <h2 className="text-5xl font-black tracking-tighter leading-none">#{order.tableNumber}</h2>
@@ -201,7 +206,6 @@ const BaristaDisplay = () => {
                                         </div>
                                     </div>
                                 ))}
-
                                 {order.note && (
                                     <div className="mt-2 p-3 bg-slate-900 rounded-2xl">
                                         <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1">Catatan Pesanan:</p>
@@ -216,20 +220,20 @@ const BaristaDisplay = () => {
                                         <PlayCircle size={20} /> Mulai Racik
                                     </button>
                                 )}
-
                                 {isCooking && (
                                     <button onClick={() => updateStatus(order.id, 'ready')} className="w-full py-5 bg-green-500 hover:bg-green-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-3">
                                         <CheckCircle size={20} /> Siap Diantar
                                     </button>
                                 )}
-
                                 {isReady && (
                                     <div className="w-full py-5 bg-green-100 text-green-600 font-black text-xs uppercase tracking-[0.2em] rounded-2xl border-2 border-green-200 flex items-center justify-center gap-3 animate-pulse">
                                         <Bell size={20} /> Menunggu Pickup
                                     </div>
                                 )}
-
-                                <button onClick={() => setPreviewOrder(order)} className="w-full py-3 bg-white text-slate-400 font-black text-[9px] uppercase tracking-widest rounded-xl border-2 border-slate-50 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                                <button
+                                    onClick={() => setPreviewOrder(order)}
+                                    className="w-full py-3 bg-white text-slate-400 font-black text-[9px] uppercase tracking-widest rounded-xl border-2 border-slate-50 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 active:scale-95"
+                                >
                                     <Printer size={16} /> Preview Ticket
                                 </button>
                             </div>
@@ -239,21 +243,46 @@ const BaristaDisplay = () => {
             </div>
 
             {previewOrder && (
-                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-md">
-                    <div className="bg-white rounded-[3rem] shadow-2xl p-8 w-full max-w-sm flex flex-col items-center">
-                        <div className="flex justify-between items-center w-full mb-6">
-                            <h3 className="font-black text-xs text-slate-400 uppercase tracking-widest">Barista Ticket</h3>
+                <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-md no-print">
+                    <div className="bg-white rounded-[3rem] shadow-2xl p-8 w-full max-w-sm flex flex-col items-center max-h-[90vh] overflow-y-auto relative">
+                        <div className="w-full flex justify-between items-center mb-6">
+                            <h3 className="font-black text-xs text-slate-400 uppercase tracking-widest">Barista Ticket Preview</h3>
                             <button onClick={() => setPreviewOrder(null)} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-colors"><X size={24} /></button>
                         </div>
-
-                        <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 mb-8 w-full flex justify-center overflow-y-auto max-h-[50vh]">
-                            <BaristaReceipt order={previewOrder} />
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 mb-8 w-full">
+                            <div className="bg-white p-4 shadow-sm font-mono text-[10px] w-full text-black">
+                                <div className="text-center border-b border-black pb-2 mb-2 uppercase font-bold text-sm">Bar (Drink)</div>
+                                <div className="text-[8px] text-center mb-2 uppercase">
+                                    {previewOrder.createdAt ? new Date(previewOrder.createdAt.seconds * 1000).toLocaleString('id-ID') : ''}
+                                </div>
+                                <div className="flex justify-between mb-1"><span>Cust:</span><span className="font-bold uppercase">{previewOrder.customerName}</span></div>
+                                <div className="flex justify-between font-bold text-lg mb-2 border-y border-black py-2 text-center">
+                                    <span className="w-full text-center">MEJA {previewOrder.tableNumber}</span>
+                                </div>
+                                {previewOrder.items.filter(i => isDrinkCategory(i.category)).map((item, i) => (
+                                    <div key={i} className="flex gap-2 mb-2 border-b border-gray-100 pb-1">
+                                        <span className="font-black text-sm">{item.qty}x</span>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold uppercase">{item.name}</span>
+                                            {item.note && <span className="text-[9px] font-bold bg-black text-white px-1 mt-1 uppercase italic">* {item.note}</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                                {previewOrder.note && (
+                                    <div className="mt-2 text-center text-[9px] font-bold border-t border-black pt-2 uppercase">
+                                        Catatan: {previewOrder.note}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-
                         <div className="grid grid-cols-2 gap-4 w-full">
                             <button onClick={() => setPreviewOrder(null)} className="py-4 rounded-2xl border-2 border-slate-100 font-black text-xs uppercase tracking-widest text-slate-400">Tutup</button>
-                            <button onClick={() => { setPrintingOrder(previewOrder); setPreviewOrder(null); }} className="py-4 rounded-2xl bg-blue-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-200 flex items-center justify-center gap-2">
-                                <Printer size={18} /> Print
+                            <button
+                                onClick={() => handleNativePrint(previewOrder)}
+                                disabled={isPrinting}
+                                className="py-4 rounded-2xl bg-blue-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-200 flex items-center justify-center gap-2"
+                            >
+                                {isPrinting ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />} Print
                             </button>
                         </div>
                     </div>
