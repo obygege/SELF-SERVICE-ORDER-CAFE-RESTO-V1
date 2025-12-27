@@ -56,18 +56,33 @@ const AdminLiveOrders = () => {
 
     const confirmPayment = async (id) => {
         if (window.confirm("Konfirmasi pembayaran lunas?")) {
-            await updateDoc(doc(db, "orders", id), { paymentStatus: 'paid' });
-            setProofModalOrder(null);
-            toast.success("Pembayaran Lunas");
+            try {
+                await updateDoc(doc(db, "orders", id), {
+                    paymentStatus: 'paid',
+                    verifiedBy: adminName
+                });
+                setProofModalOrder(null);
+                toast.success("Pembayaran Lunas & Terverifikasi");
+            } catch (error) {
+                toast.error("Gagal verifikasi");
+            }
         }
     };
 
     const rejectPayment = async (id) => {
         const reason = window.prompt("Alasan penolakan:", "Bukti tidak valid");
         if (reason) {
-            await updateDoc(doc(db, "orders", id), { status: 'payment_rejected', note: `Ditolak: ${reason}` });
-            setProofModalOrder(null);
-            toast.error("Pembayaran Ditolak");
+            try {
+                await updateDoc(doc(db, "orders", id), {
+                    status: 'payment_rejected',
+                    paymentStatus: 'unpaid',
+                    note: `Ditolak: ${reason}`
+                });
+                setProofModalOrder(null);
+                toast.error("Pembayaran Ditolak");
+            } catch (error) {
+                toast.error("Gagal menolak");
+            }
         }
     };
 
@@ -77,13 +92,17 @@ const AdminLiveOrders = () => {
             if (currentStatus === 'pending') nextStatus = 'cooking';
             else if (currentStatus === 'cooking') nextStatus = 'ready';
         } else {
-            if (window.confirm("Selesaikan pesanan ini?")) {
+            if (window.confirm("Selesaikan pesanan ini? Pesanan akan dipindahkan ke Riwayat Selesai.")) {
                 nextStatus = 'completed';
             }
         }
         if (nextStatus) {
-            await updateDoc(doc(db, "orders", id), { status: nextStatus });
-            toast.success(`Status: ${nextStatus.toUpperCase()}`);
+            try {
+                await updateDoc(doc(db, "orders", id), { status: nextStatus });
+                toast.success(`Status: ${nextStatus.toUpperCase()}`);
+            } catch (error) {
+                toast.error("Gagal update status");
+            }
         }
     };
 
@@ -231,17 +250,17 @@ const AdminLiveOrders = () => {
                             <div className="flex flex-col gap-2">
                                 {isQris && !isKitchenBar && !isPaid && !isRejected && (
                                     <button onClick={() => setProofModalOrder(order)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-black text-[10px] uppercase flex justify-center gap-2 transition-all active:scale-95 shadow-md border-2 border-blue-700">
-                                        <Eye size={14} /> Bukti Bayar & Konfirmasi
+                                        <Eye size={14} /> Bukti Bayar & Verifikasi
                                     </button>
                                 )}
                                 {!isKitchenBar && !isPaid && !isRejected && !order.proofImage && (
                                     <button onClick={() => confirmPayment(order.id)} className="w-full bg-green-600 text-white py-3 rounded-xl font-black text-[10px] uppercase flex justify-center gap-2 transition-all active:scale-95 shadow-md border-2 border-green-700">
-                                        <Banknote size={16} /> Terima Tunai
+                                        <Banknote size={16} /> Terima Tunai (Manual)
                                     </button>
                                 )}
                                 <div className="flex gap-2">
                                     <button onClick={() => changeStatus(order.id, order.status)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase text-white shadow-md active:scale-95 transition-all ${isKitchenBar ? 'bg-orange-600' : 'bg-slate-900'}`}>
-                                        {isKitchenBar ? (order.status === 'pending' ? 'Proses' : 'Siap Saji') : 'Selesai'}
+                                        {isKitchenBar ? (order.status === 'pending' ? 'Proses Masak' : 'Siap Saji') : 'Selesai / Simpan'}
                                     </button>
                                     <button onClick={() => handlePrintAction(order)} disabled={isPrinting} className="px-4 bg-gray-100 text-slate-500 rounded-xl border border-slate-100 flex items-center justify-center active:scale-95 transition-all shadow-sm">
                                         {isPrinting && selectedOrder?.id === order.id ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}
@@ -258,7 +277,7 @@ const AdminLiveOrders = () => {
                     <div className="bg-white rounded-[2.5rem] w-full max-w-md p-6 flex flex-col shadow-2xl border-4 border-white">
                         <div className="flex justify-between mb-4 items-center">
                             <div className="flex flex-col">
-                                <h3 className="font-black text-xs uppercase tracking-widest text-slate-400">Validasi Pembayaran</h3>
+                                <h3 className="font-black text-xs uppercase tracking-widest text-slate-400">Verifikasi Pembayaran</h3>
                                 <span className="text-[10px] font-bold text-slate-900 mt-1">{proofModalOrder.orderId}</span>
                             </div>
                             <button onClick={() => setProofModalOrder(null)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
