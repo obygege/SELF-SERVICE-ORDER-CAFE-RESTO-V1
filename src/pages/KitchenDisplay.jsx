@@ -147,8 +147,8 @@ const KitchenDisplay = () => {
                         <ChefHat size={32} />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Kitchen Monitor</h1>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Live Realtime Order</p>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">MONITORING DAPUR</h1>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Pesanan Masuk Instan</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">

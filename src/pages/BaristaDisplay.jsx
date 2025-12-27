@@ -154,8 +154,8 @@ const BaristaDisplay = () => {
                         <Coffee size={32} />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Barista Monitor</h1>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Live Drink Tracker</p>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">MONITORING BARISTA</h1>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Pesanan Masuk Instan</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">

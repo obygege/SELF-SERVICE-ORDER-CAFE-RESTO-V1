@@ -73,7 +73,7 @@ const OrderHistory = () => {
     };
 
     const handleReupload = async (orderId) => {
-        if (!selectedFile) return;
+        if (!selectedFile) return toast.error("Silakan pilih foto terlebih dahulu");
         setUploadingId(orderId);
         try {
             await updateDoc(doc(db, "orders", orderId), {
@@ -166,16 +166,42 @@ const OrderHistory = () => {
                                         <div className="mt-2">
                                             {activeReuploadId === order.id ? (
                                                 <div className="space-y-3">
-                                                    {previewUrl && <img src={previewUrl} className="h-32 w-full object-cover rounded-xl shadow-sm border" alt="Preview" />}
+                                                    <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-2 bg-slate-50">
+                                                        {previewUrl ? (
+                                                            <img src={previewUrl} className="h-40 w-full object-cover rounded-xl shadow-sm" alt="Preview" />
+                                                        ) : (
+                                                            <div className="h-40 flex flex-col items-center justify-center text-slate-400">
+                                                                <Upload size={24} className="mb-2" />
+                                                                <span className="text-[10px] font-bold uppercase">Pilih Foto Baru</span>
+                                                            </div>
+                                                        )}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                                            onChange={(e) => handleFileSelect(e, order.id)}
+                                                        />
+                                                    </div>
                                                     <div className="flex gap-2">
-                                                        <button onClick={cancelReupload} className="flex-1 py-3 text-[10px] font-bold bg-gray-100 rounded-xl">Batal</button>
-                                                        <button onClick={() => handleReupload(order.id)} className="flex-2 py-3 text-[10px] font-bold bg-red-600 text-white rounded-xl shadow-md">Kirim Ulang</button>
+                                                        <button onClick={cancelReupload} className="flex-1 py-3 text-[10px] font-bold bg-gray-100 rounded-xl uppercase">Batal</button>
+                                                        <button
+                                                            onClick={() => handleReupload(order.id)}
+                                                            disabled={uploadingId === order.id || !selectedFile}
+                                                            className="flex-2 py-3 px-4 text-[10px] font-bold bg-red-600 text-white rounded-xl uppercase flex items-center justify-center gap-2 disabled:bg-red-300"
+                                                        >
+                                                            {uploadingId === order.id ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
+                                                            Kirim Ulang
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <button onClick={() => { setActiveReuploadId(order.id) }} className="w-full py-3 bg-red-50 text-red-600 border-2 border-dashed border-red-200 rounded-xl text-[10px] font-black uppercase tracking-wider">UPLOAD ULANG BUKTI</button>
+                                                <button
+                                                    onClick={() => setActiveReuploadId(order.id)}
+                                                    className="w-full py-4 bg-red-50 text-red-600 border-2 border-dashed border-red-200 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                                                >
+                                                    <Upload size={16} /> Update Bukti & Kirim Ulang
+                                                </button>
                                             )}
-                                            <input type="file" id={`file-${order.id}`} accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, order.id)} />
                                         </div>
                                     )}
                                 </div>

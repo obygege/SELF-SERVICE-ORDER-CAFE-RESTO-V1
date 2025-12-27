@@ -121,7 +121,7 @@ const LoginStaff = () => {
                             disabled={loading}
                             className="w-full bg-slate-900 hover:bg-black text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-3 mt-4"
                         >
-                            {loading ? <Loader2 className="animate-spin" size={24} /> : "OTORISASI MASUK"}
+                            {loading ? <Loader2 className="animate-spin" size={24} /> : "MASUK"}
                         </button>
                     </form>
 
