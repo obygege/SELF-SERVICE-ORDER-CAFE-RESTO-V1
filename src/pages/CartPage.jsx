@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { addDoc, collection, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Plus, Minus, Loader2, Navigation, AlertTriangle, X, Upload, QrCode } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Loader2, Navigation, AlertTriangle, X, Upload, QrCode, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CartPage = () => {
@@ -131,6 +131,15 @@ const CartPage = () => {
         }
     };
 
+    const handleDownloadQR = () => {
+        const link = document.createElement('a');
+        link.href = '/assets/qris.png';
+        link.download = 'QRIS_Payment.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (subTotal === 0) return <div className="p-20 text-center font-bold">Keranjang Kosong</div>;
 
     return (
@@ -188,7 +197,15 @@ const CartPage = () => {
                         <button onClick={() => setShowQrisModal(false)} className="absolute top-6 right-6 p-2 bg-gray-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"><X size={20} /></button>
                         <div className="text-center mb-6">
                             <h3 className="font-black text-xs uppercase text-slate-400 tracking-[0.2em] mb-4">Pembayaran QRIS</h3>
-                            <img src="/assets/qris.png" className="w-48 h-48 mx-auto rounded-3xl border-4 border-slate-900 shadow-xl" alt="QRIS" />
+                            <div className="relative inline-block group">
+                                <img src="/assets/qris.png" className="w-48 h-48 mx-auto rounded-3xl border-4 border-slate-900 shadow-xl" alt="QRIS" />
+                                <button
+                                    onClick={handleDownloadQR}
+                                    className="mt-4 flex items-center gap-2 mx-auto bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+                                >
+                                    <Download size={16} /> Simpan Gambar
+                                </button>
+                            </div>
                         </div>
                         <div className="bg-orange-50 p-6 rounded-3xl text-center mb-6 border border-orange-100 shadow-inner">
                             <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Total Tepat</p>
