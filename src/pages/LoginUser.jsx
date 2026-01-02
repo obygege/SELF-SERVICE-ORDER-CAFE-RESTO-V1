@@ -1,11 +1,8 @@
-// Created By Futura Link
-// Order Apllication/Website : 089655939955 (WA)
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Lock, Mail, User, Navigation, ScanLine, QrCode, Smartphone, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -30,7 +27,6 @@ const LoginUser = () => {
 
     useEffect(() => {
         const savedTable = localStorage.getItem('activeTable');
-
         if (tableParam) {
             localStorage.setItem('activeTable', tableParam);
             setHasTable(true);
@@ -45,8 +41,12 @@ const LoginUser = () => {
                 const docRef = doc(db, "settings", "location");
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
-                    setStoreConfig(docSnap.data());
-                    checkUserLocation(docSnap.data());
+                    const data = docSnap.data();
+                    setStoreConfig(data);
+                    if (!data.latitude) {
+                        setIsAllowed(true);
+                        setGpsStatus('allowed');
+                    }
                 } else {
                     setGpsStatus('allowed');
                     setIsAllowed(true);
@@ -63,58 +63,25 @@ const LoginUser = () => {
         const R = 6371;
         const dLat = (lat2 - lat1) * (Math.PI / 180);
         const dLon = (lon2 - lon1) * (Math.PI / 180);
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
             Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     };
 
-    const checkUserLocation = (config) => {
-        if (!config || !config.latitude) { setIsAllowed(true); return; }
-        setCheckingLoc(true);
-        if (!navigator.geolocation) { setCheckingLoc(false); return; }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const dist = getDistanceFromLatLonInKm(pos.coords.latitude, pos.coords.longitude, config.latitude, config.longitude);
-                setDistance(dist);
-                const max = config.radiusKM || 0.1;
-                if (dist <= max) {
-                    setIsAllowed(true);
-                    setGpsStatus('allowed');
-                } else {
-                    setIsAllowed(false);
-                    setGpsStatus('denied');
-                }
-                setCheckingLoc(false);
-            },
-            () => { setCheckingLoc(false); setIsAllowed(false); setGpsStatus('error'); },
-            { enableHighAccuracy: true }
-        );
-    };
-
     useEffect(() => {
-        if (!storeConfig) return;
-
-        if (!storeConfig.latitude) {
-            setIsAllowed(true);
-            setGpsStatus('allowed');
-            return;
-        }
-
-        if (!navigator.geolocation) {
-            setGpsStatus('error');
-            return;
-        }
+        if (!storeConfig || !storeConfig.latitude) return;
+        setCheckingLoc(true);
 
         const watchId = navigator.geolocation.watchPosition(
             (position) => {
-                const userLat = position.coords.latitude;
-                const userLng = position.coords.longitude;
-
-                const dist = getDistanceFromLatLonInKm(userLat, userLng, storeConfig.latitude, storeConfig.longitude);
+                const dist = getDistanceFromLatLonInKm(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    storeConfig.latitude,
+                    storeConfig.longitude
+                );
                 setDistance(dist);
-
                 const maxRadius = storeConfig.radiusKM || 0.1;
 
                 if (dist <= maxRadius) {
@@ -124,23 +91,23 @@ const LoginUser = () => {
                     setIsAllowed(false);
                     setGpsStatus('denied');
                 }
+                setCheckingLoc(false);
             },
-            (error) => {
+            () => {
                 setGpsStatus('error');
+                setCheckingLoc(false);
             },
-            { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
 
         return () => navigator.geolocation.clearWatch(watchId);
     }, [storeConfig]);
 
-    const handleSuccessRedirect = () => {
-        navigate('/');
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!isAllowed) return toast.error("Lokasi kejauhan! Mendekat ke Cafe.");
+        if (!isAllowed) return toast.error("Lokasi tidak diizinkan");
+
+        const loadingToast = toast.loading(isRegister ? "Mendaftarkan..." : "Memverifikasi...");
 
         try {
             if (isRegister) {
@@ -151,89 +118,87 @@ const LoginUser = () => {
                     email: email,
                     phoneNumber: phoneNumber,
                     role: 'user',
-                    createdAt: new Date()
+                    createdAt: serverTimestamp()
                 });
-                toast.success("Akun berhasil dibuat!");
+                toast.success("Daftar Berhasil!", { id: loadingToast });
             } else {
                 const res = await loginEmail(email, password);
                 if (phoneNumber) {
                     await updateDoc(doc(db, "users", res.user.uid), {
                         phoneNumber: phoneNumber
-                    });
+                    }).catch(() => { });
                 }
-                toast.success("Berhasil Masuk!");
+                toast.success("Masuk Berhasil!", { id: loadingToast });
             }
-            handleSuccessRedirect();
+            navigate('/');
         } catch (err) {
-            toast.error(isRegister ? "Gagal Daftar" : "Email/Password Salah");
+            console.error(err);
+            let msg = "Terjadi kesalahan";
+            if (err.code === 'auth/email-already-in-use') msg = "Email sudah terdaftar";
+            if (err.code === 'auth/weak-password') msg = "Password terlalu lemah";
+            if (err.code === 'auth/invalid-credential') msg = "Email atau Password salah";
+            toast.error(msg, { id: loadingToast });
         }
     };
 
     const handleGoogle = async () => {
-        if (!isAllowed) {
-            toast.error("Lokasi Anda terlalu jauh dari Cafe.");
-            return;
-        }
+        if (!isAllowed) return toast.error("Lokasi terlalu jauh");
 
+        const loadingToast = toast.loading("Menghubungkan Google...");
         try {
             const res = await loginGoogle();
-
             const userRef = doc(db, "users", res.user.uid);
-            await setDoc(userRef, {
-                uid: res.user.uid,
-                name: res.user.displayName,
-                email: res.user.email,
-                role: 'user',
-                lastLogin: new Date()
-            }, { merge: true });
+            const userSnap = await getDoc(userRef);
 
-            handleSuccessRedirect();
-        } catch (err) {
-            console.error("Google Error:", err);
-            if (err.code === 'auth/popup-closed-by-user') {
-                toast("Login dibatalkan");
-            } else if (err.code === 'auth/unauthorized-domain') {
-                toast.error("Domain belum diizinkan di Firebase!");
+            if (!userSnap.exists()) {
+                await setDoc(userRef, {
+                    uid: res.user.uid,
+                    name: res.user.displayName,
+                    email: res.user.email,
+                    phoneNumber: res.user.phoneNumber || '',
+                    role: 'user',
+                    createdAt: serverTimestamp(),
+                    lastLogin: serverTimestamp()
+                });
             } else {
-                toast.error("Gagal Login Google");
+                await updateDoc(userRef, {
+                    lastLogin: serverTimestamp()
+                });
             }
+
+            toast.success("Berhasil Masuk!", { id: loadingToast });
+            navigate('/');
+        } catch (err) {
+            console.error(err);
+            toast.error("Gagal Login Google", { id: loadingToast });
         }
     };
 
     if (!hasTable) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center relative overflow-hidden font-sans">
-                <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-orange-300 rounded-full blur-[100px] opacity-30 animate-pulse"></div>
-                <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-red-300 rounded-full blur-[100px] opacity-30 animate-pulse"></div>
-
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center relative overflow-hidden">
+                <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-orange-300 rounded-full blur-[100px] opacity-30"></div>
                 <div className="bg-white/80 backdrop-blur-xl border border-white shadow-2xl p-8 rounded-3xl max-w-sm w-full relative z-10">
-                    <div className="w-20 h-20 bg-gradient-to-tr from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-orange-200">
+                    <div className="w-20 h-20 bg-gradient-to-tr from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
                         <QrCode className="text-white w-10 h-10" />
                     </div>
-
                     <h1 className="text-2xl font-bold text-gray-800 mb-2">Scan QR Meja</h1>
                     <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-                        Untuk melakukan pemesanan, silakan scan <b>QR Code</b> yang tertempel di meja Anda menggunakan kamera HP.
+                        Silakan scan <b>QR Code</b> di meja Anda untuk memesan.
                     </p>
-
                     <div className="space-y-4">
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="bg-white p-2 rounded-full border border-gray-200 shadow-sm">
-                                <Smartphone className="text-orange-500 w-5 h-5" />
-                            </div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4">
+                            <Smartphone className="text-orange-500 w-5 h-5" />
                             <div className="text-left">
                                 <p className="text-gray-800 text-xs font-bold">Langkah 1</p>
-                                <p className="text-gray-400 text-[10px]">Buka Kamera / App QR Scanner</p>
+                                <p className="text-gray-400 text-[10px]">Buka Kamera HP</p>
                             </div>
                         </div>
-
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="bg-white p-2 rounded-full border border-gray-200 shadow-sm">
-                                <ScanLine className="text-orange-500 w-5 h-5" />
-                            </div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4">
+                            <ScanLine className="text-orange-500 w-5 h-5" />
                             <div className="text-left">
                                 <p className="text-gray-800 text-xs font-bold">Langkah 2</p>
-                                <p className="text-gray-400 text-[10px]">Arahkan ke QR Code di Meja</p>
+                                <p className="text-gray-400 text-[10px]">Arahkan ke QR Code</p>
                             </div>
                         </div>
                     </div>
@@ -245,84 +210,49 @@ const LoginUser = () => {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 relative overflow-hidden font-sans">
             <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-orange-500 to-orange-400 rounded-b-[50px] z-0 shadow-lg"></div>
-
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md z-10 overflow-hidden relative border border-gray-100">
                 <div className="p-8 pb-4 text-center">
-                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-orange-50 shadow-md p-2">
-                        <img
-                            src="/assets/logo.png"
-                            alt="Logo"
-                            className="w-full h-full object-contain"
-                            onError={(e) => e.target.style.display = 'none'}
-                        />
+                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-orange-50 shadow-md">
+                        <img src="/assets/logo.png" alt="Logo" className="w-full h-full object-contain" onError={(e) => e.target.style.display = 'none'} />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-800">
-                        {isRegister ? 'Buat Akun Baru' : 'Selamat Datang'}
-                    </h2>
-                    <p className="text-gray-500 text-sm mt-1 mb-2">
-                        Silakan login untuk mulai memesan.
-                    </p>
-
-                    <div className="flex flex-col items-center justify-center gap-1 mb-4">
-                        <span className={`text-[10px] px-3 py-1.5 rounded-full font-bold border flex items-center gap-1 transition-colors ${gpsStatus === 'allowed' ? 'bg-green-50 text-green-700 border-green-200' :
-                            gpsStatus === 'denied' ? 'bg-red-50 text-red-700 border-red-200' :
-                                'bg-gray-100 text-gray-500 border-gray-200'
+                    <h2 className="text-2xl font-bold text-gray-800">{isRegister ? 'Buat Akun Baru' : 'Selamat Datang'}</h2>
+                    <div className="flex flex-col items-center justify-center gap-1 my-4">
+                        <span className={`text-[10px] px-3 py-1.5 rounded-full font-bold border flex items-center gap-1 ${gpsStatus === 'allowed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                gpsStatus === 'denied' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-100 text-gray-500'
                             }`}>
                             <Navigation size={12} />
-                            {checkingLoc ? "Mencari Lokasi..." :
-                                gpsStatus === 'allowed' ? "Lokasi Valid - Silakan Masuk" :
-                                    gpsStatus === 'denied' ? "Lokasi Kejauhan" :
-                                        "GPS Error / Mati"}
+                            {checkingLoc ? "Mencari Lokasi..." : gpsStatus === 'allowed' ? "Lokasi Valid" : gpsStatus === 'denied' ? "Lokasi Kejauhan" : "GPS Mati"}
                         </span>
                         {distance !== null && <span className="text-[10px] text-gray-400">Jarak: {(distance * 1000).toFixed(0)}m</span>}
                     </div>
                 </div>
 
                 <div className="px-8 pb-8">
-                    <button
-                        onClick={handleGoogle}
-                        className={`w-full border border-gray-300 bg-white py-2.5 rounded-xl flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 hover:bg-gray-50 hover:shadow-sm active:scale-95`}
-                    >
+                    <button onClick={handleGoogle} disabled={!isAllowed} className="w-full border border-gray-300 bg-white py-2.5 rounded-xl flex items-center justify-center gap-2 transition mb-6 font-medium text-gray-700 active:scale-95 disabled:opacity-50">
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
                         {isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google'}
                     </button>
 
-                    <div className="relative mb-6">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase text-gray-400 font-bold tracking-wider"><span className="bg-white px-3">Atau via Email</span></div>
-                    </div>
-
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isRegister && (
                             <div className="relative group">
-                                <User className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                                <input type="text" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} disabled={!isAllowed} />
+                                <User className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                                <input type="text" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-gray-50" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} disabled={!isAllowed} />
                             </div>
                         )}
-
                         <div className="relative group">
-                            <Phone className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                            <input
-                                type="tel"
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white"
-                                placeholder={isRegister ? "No. HP / WhatsApp (Wajib)" : "No. HP / WhatsApp (Opsional)"}
-                                required={isRegister}
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value)}
-                                disabled={!isAllowed}
-                            />
-                        </div>
-
-                        <div className="relative group">
-                            <Mail className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                            <input type="email" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="email@anda.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isAllowed} />
+                            <Phone className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                            <input type="tel" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-gray-50" placeholder="No. HP / WhatsApp" required={isRegister} value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} disabled={!isAllowed} />
                         </div>
                         <div className="relative group">
-                            <Lock className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
-                            <input type="password" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition bg-gray-50 focus:bg-white" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={!isAllowed} />
+                            <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                            <input type="email" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-gray-50" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isAllowed} />
                         </div>
-
-                        <button type="submit" className={`w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-orange-200 flex justify-center items-center gap-2 ${!isAllowed ? 'opacity-50 cursor-not-allowed shadow-none grayscale' : 'hover:from-orange-500 hover:to-red-500 active:scale-95'}`} disabled={!isAllowed}>
+                        <div className="relative group">
+                            <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                            <input type="password" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-gray-50" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={!isAllowed} />
+                        </div>
+                        <button type="submit" disabled={!isAllowed} className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-xl font-bold shadow-lg disabled:grayscale active:scale-95 transition-all">
                             {isRegister ? 'Daftar Sekarang' : 'Masuk Aplikasi'}
                         </button>
                     </form>
