@@ -106,8 +106,8 @@ const OrderHistory = () => {
         if (paymentStatus === 'paid') {
             switch (status) {
                 case 'pending': return { label: 'ANTRIAN', color: 'bg-green-600 text-white', icon: <CheckCircle size={14} /> };
-                case 'cooking': return { label: 'DIMASAK', color: 'bg-orange-500 text-white', icon: <ChefHat size={14} /> };
-                case 'ready': return { label: 'SIAP ANTAR', color: 'bg-blue-600 text-white', icon: <BellRing size={14} className="animate-bounce" /> };
+                case 'cooking': return { label: 'DIMASAK/DISIAPKAN', color: 'bg-orange-500 text-white', icon: <ChefHat size={14} /> };
+                case 'ready': return { label: 'SEDANG DIANTAR', color: 'bg-blue-600 text-white', icon: <BellRing size={14} className="animate-bounce" /> };
                 default: return { label: 'PROSES', color: 'bg-green-600 text-white', icon: <Clock size={14} /> };
             }
         }
