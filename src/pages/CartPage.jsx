@@ -8,7 +8,7 @@ import { ArrowLeft, Plus, Minus, Loader2, Navigation, AlertTriangle, X, Upload, 
 import toast from 'react-hot-toast';
 
 const CartPage = () => {
-    const { cart, addToCart, decreaseQty, getCartTotal, clearCart } = useCart();
+    const { cart, getCartTotal, clearCart } = useCart();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -77,6 +77,7 @@ const CartPage = () => {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            if (file.size > 2000000) return toast.error("Ukuran file maksimal 2MB");
             const reader = new FileReader();
             reader.onloadend = () => {
                 setProofImage(reader.result);
@@ -99,33 +100,50 @@ const CartPage = () => {
     const submitToFirebase = async () => {
         if (!proofImage) return toast.error("Upload bukti pembayaran!");
         setIsSubmitting(true);
+        const loadingToast = toast.loading("Mengirim pesanan...");
+
         try {
-            const cartItems = Object.values(cart);
-            await addDoc(collection(db, "orders"), {
+            const cartItems = Object.values(cart).map(item => ({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                qty: item.qty,
+                category: item.category || 'general',
+                image: item.image || ''
+            }));
+
+            const orderData = {
                 orderId: `TRX-${Date.now().toString().slice(-6)}`,
                 userId: currentUser.uid,
-                customerEmail: currentUser.email,
+                customerEmail: currentUser.email || '',
                 tableNumber: scannedTable,
-                customerName,
+                customerName: customerName,
                 items: cartItems,
-                subTotal,
-                uniqueCode,
-                total: totalWithCode,
-                proofImage,
+                subTotal: Number(subTotal),
+                uniqueCode: Number(uniqueCode),
+                total: Number(totalWithCode),
+                proofImage: proofImage,
                 status: 'pending',
                 paymentStatus: 'unpaid',
                 createdAt: serverTimestamp()
-            });
+            };
+
+            await addDoc(collection(db, "orders"), orderData);
 
             for (const item of cartItems) {
-                await updateDoc(doc(db, "products", item.id), { stock: increment(-item.qty) });
+                const productRef = doc(db, "products", item.id);
+                await updateDoc(productRef, {
+                    stock: increment(-item.qty)
+                }).catch(e => console.log("Update stock failed for:", item.id));
             }
 
+            toast.success("Pesanan Berhasil Terkirim!", { id: loadingToast });
             clearCart();
-            toast.success("Pesanan Terkirim!");
+            setShowQrisModal(false);
             navigate('/history');
         } catch (error) {
-            toast.error("Gagal mengirim pesanan");
+            console.error("Firebase Error:", error);
+            toast.error("Gagal mengirim pesanan: " + error.message, { id: loadingToast });
         } finally {
             setIsSubmitting(false);
         }

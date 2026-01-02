@@ -115,72 +115,101 @@ const AdminLiveOrders = () => {
         <div className="font-sans p-4 pb-20">
             <style>
                 {`
+                @media screen {
+                    #print-receipt { display: none; }
+                }
                 @media print {
+                    @page { 
+                        size: 58mm auto; 
+                        margin: 0mm !important; 
+                    }
+                    html, body {
+                        width: 58mm;
+                        height: auto;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: #fff;
+                    }
                     body * { visibility: hidden; }
-                    #print-receipt, #print-receipt * { visibility: visible; }
+                    #print-receipt, #print-receipt * { 
+                        visibility: visible; 
+                    }
                     #print-receipt {
                         position: absolute;
                         left: 0;
-                        right: 0;
                         top: 0;
-                        margin: 0 auto !important;
-                        width: 46mm;
-                        padding: 0;
-                        background: white;
+                        width: 58mm !important;
+                        margin: 0 !important;
+                        padding: 4mm !important;
+                        box-sizing: border-box;
                         display: block !important;
+                        background: white;
                     }
-                    @page { size: 58mm auto; margin: 0; }
                 }
                 `}
             </style>
 
-            <div id="print-receipt" className="hidden print:block bg-white text-black font-mono" style={{ width: '46mm', margin: '0 auto', padding: '5px', fontSize: '11px' }}>
+            <div id="print-receipt" className="bg-white text-black font-mono">
                 {selectedOrder && (
-                    <div className="flex flex-col items-center w-full">
-                        <img src="/assets/logo.png" alt="LOGO" style={{ height: '45px', width: '45px', objectFit: 'contain', marginBottom: '5px', filter: 'grayscale(1)', marginLeft: 'auto', marginRight: 'auto', display: 'block' }} />
-                        <h2 style={{ fontSize: '13px', fontWeight: 'bold', margin: '0', textAlign: 'center', lineHeight: '1.2', width: '100%' }}>TAKI COFFEE & EATERY</h2>
-                        <div style={{ fontSize: '8px', textAlign: 'center', borderTop: '1.5px solid black', marginTop: '6px', paddingTop: '6px', width: '100%', lineHeight: '1.3' }}>
-                            <p style={{ margin: '0' }}>Jl. Taman Kenten, Duku, Ilir Tim. II</p>
-                            <p style={{ margin: '0' }}>Palembang, Sumatera Selatan</p>
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <img src="/assets/logo.png" alt="LOGO" style={{ height: '40px', width: '40px', objectFit: 'contain', marginBottom: '5px', filter: 'grayscale(1)' }} />
+                        <h2 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', textAlign: 'center' }}>TAKI COFFEE & EATERY</h2>
+                        <div style={{ fontSize: '8px', textAlign: 'center', borderTop: '1px solid black', marginTop: '5px', paddingTop: '5px', width: '100%' }}>
+                            <p style={{ margin: '0' }}>Jl. Taman Kenten, Duku, Palembang</p>
                             <p style={{ margin: '0' }}>0812-7156-2248</p>
                         </div>
-                        <div style={{ borderTop: '1px dashed black', marginTop: '6px', paddingTop: '6px', width: '100%', textAlign: 'center', fontSize: '10px' }}>
-                            {selectedOrder.createdAt ? new Date(selectedOrder.createdAt.seconds * 1000).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : ''}
-                        </div>
-                        <div style={{ borderTop: '1px dashed black', marginTop: '6px', paddingTop: '6px', width: '100%', fontSize: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Admin:</span><span>{adminName.substring(0, 8)}</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cust:</span><span>{selectedOrder.customerName?.substring(0, 10)}</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Trx:</span><span>{selectedOrder.orderId}</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px', borderTop: '1px dotted black', paddingTop: '5px' }}>
+
+                        <div style={{ borderTop: '1px dashed black', marginTop: '5px', paddingTop: '5px', width: '100%', fontSize: '9px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Waktu:</span>
+                                <span>{selectedOrder.createdAt ? new Date(selectedOrder.createdAt.seconds * 1000).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Admin:</span>
+                                <span>{adminName.substring(0, 12)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Cust:</span>
+                                <span>{selectedOrder.customerName?.substring(0, 12)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', borderTop: '1px dotted black', paddingTop: '3px' }}>
                                 <span style={{ fontWeight: 'bold' }}>MEJA:</span>
-                                <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{selectedOrder.tableNumber}</span>
+                                <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{selectedOrder.tableNumber}</span>
                             </div>
                         </div>
-                        <div style={{ borderTop: '1.5px solid black', marginTop: '6px', width: '100%' }}></div>
-                        <div style={{ width: '100%', marginTop: '6px' }}>
+
+                        <div style={{ borderTop: '1px solid black', marginTop: '5px', width: '100%' }}></div>
+                        <div style={{ width: '100%', marginTop: '5px' }}>
                             {selectedOrder.items.map((item, i) => (
-                                <div key={i} style={{ marginBottom: '6px' }}>
-                                    <div style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: '11px', lineHeight: '1.2', textAlign: 'left' }}>{item.name}</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '2px' }}>
+                                <div key={i} style={{ marginBottom: '5px', fontSize: '10px' }}>
+                                    <div style={{ fontWeight: 'bold', textTransform: 'uppercase', overflowWrap: 'break-word' }}>{item.name}</div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <span>{item.qty} x {item.price.toLocaleString()}</span>
                                         <span style={{ fontWeight: 'bold' }}>{(item.qty * item.price).toLocaleString()}</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <div style={{ borderTop: '1.5px solid black', marginTop: '6px', paddingTop: '6px', width: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span>{selectedOrder.subTotal?.toLocaleString()}</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '3px', borderTop: '1px solid black', paddingTop: '4px' }}>
-                                <span>TOTAL</span><span>Rp {selectedOrder.total?.toLocaleString()}</span>
+
+                        <div style={{ borderTop: '1px solid black', marginTop: '5px', paddingTop: '5px', width: '100%', fontSize: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Subtotal:</span>
+                                <span>{selectedOrder.subTotal?.toLocaleString()}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '12px', marginTop: '3px' }}>
+                                <span>TOTAL:</span>
+                                <span>Rp {selectedOrder.total?.toLocaleString()}</span>
                             </div>
                         </div>
-                        <div style={{ border: '1.5px solid black', width: '100%', textAlign: 'center', marginTop: '10px', padding: '4px', fontWeight: 'bold', fontSize: '12px' }}>
+
+                        <div style={{ border: '1px solid black', width: '100%', textAlign: 'center', marginTop: '8px', padding: '3px', fontWeight: 'bold', fontSize: '10px' }}>
                             {selectedOrder.paymentStatus === 'paid' ? 'LUNAS / PAID' : 'BELUM BAYAR'}
                         </div>
-                        <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '9px', borderTop: '1px dotted black', paddingTop: '6px' }}>
-                            <p style={{ margin: '0' }}>TERIMA KASIH TELAH BERKUNJUNG</p>
+
+                        <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '8px' }}>
+                            <p style={{ margin: '0' }}>TERIMA KASIH ATAS KUNJUNGANNYA</p>
                         </div>
-                        <div style={{ height: '15mm' }}></div>
+                        <div style={{ height: '8mm' }}></div>
                     </div>
                 )}
             </div>
