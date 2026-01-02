@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Clock, ShoppingBag, ChefHat, Loader2, BellRing, CheckCircle, XCircle, AlertTriangle, Upload, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Clock, ShoppingBag, ChefHat, Loader2, BellRing, CheckCircle, XCircle, AlertTriangle, Upload, RefreshCw, X, Receipt, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const OrderHistory = () => {
@@ -16,6 +16,7 @@ const OrderHistory = () => {
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [activeReuploadId, setActiveReuploadId] = useState(null);
+    const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
 
     useEffect(() => {
         if (authLoading) return;
@@ -142,7 +143,7 @@ const OrderHistory = () => {
                         const statusInfo = getStatusInfo(order.status, order.paymentStatus);
                         return (
                             <div key={order.id} className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden mb-4 transition-all">
-                                <div className={`p-4 flex justify-between items-center ${statusInfo.color}`}>
+                                <div onClick={() => setSelectedOrderDetail(order)} className={`p-4 flex justify-between items-center cursor-pointer ${statusInfo.color}`}>
                                     <div className="flex items-center gap-2">
                                         {statusInfo.icon}
                                         <span className="font-black text-[10px] uppercase">{statusInfo.label}</span>
@@ -150,16 +151,19 @@ const OrderHistory = () => {
                                     <span className="text-[10px] font-bold opacity-70">#{order.orderId?.slice(-6)}</span>
                                 </div>
                                 <div className="p-6">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <span className="text-xs font-black uppercase text-gray-400">Meja {order.tableNumber}</span>
-                                        <span className="text-sm font-black text-orange-600">Rp {order.total?.toLocaleString()}</span>
-                                    </div>
-                                    <div className="space-y-1 mb-4 border-b pb-4">
-                                        {order.items.map((item, i) => (
-                                            <div key={i} className="flex justify-between text-[11px] font-bold text-gray-600 uppercase">
-                                                <span>{item.qty}x {item.name}</span>
-                                            </div>
-                                        ))}
+                                    <div onClick={() => setSelectedOrderDetail(order)} className="cursor-pointer">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-xs font-black uppercase text-gray-400">Meja {order.tableNumber}</span>
+                                            <span className="text-sm font-black text-orange-600">Rp {order.total?.toLocaleString()}</span>
+                                        </div>
+                                        <div className="space-y-1 mb-4 border-b pb-4 text-[11px] font-bold text-gray-600 uppercase">
+                                            {order.items.slice(0, 2).map((item, i) => (
+                                                <div key={i} className="flex justify-between">
+                                                    <span>{item.qty}x {item.name}</span>
+                                                </div>
+                                            ))}
+                                            {order.items.length > 2 && <p className="text-[9px] text-gray-400 italic text-center mt-2">+{order.items.length - 2} menu lainnya</p>}
+                                        </div>
                                     </div>
 
                                     {order.status === 'payment_rejected' && (
@@ -215,6 +219,75 @@ const OrderHistory = () => {
                     })
                 )}
             </div>
+
+            {selectedOrderDetail && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom duration-300">
+                        <div className="bg-slate-900 p-5 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <Receipt size={24} className="text-orange-400" />
+                                <div>
+                                    <h2 className="font-black text-sm uppercase tracking-widest">Detail Pesanan</h2>
+                                    <p className="text-[10px] text-slate-400 font-mono tracking-widest">#{selectedOrderDetail.orderId}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedOrderDetail(null)} className="p-2 hover:bg-slate-700 rounded-full transition"><X size={24} /></button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto space-y-6">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <span className="text-[9px] text-slate-400 uppercase font-black block mb-1">Nama Pemesan</span>
+                                    <span className="font-black text-slate-800 flex items-center gap-2 uppercase text-xs truncate"><User size={14} /> {selectedOrderDetail.customerName}</span>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                                    <span className="text-[9px] text-slate-400 uppercase font-black block mb-1">Nomor Meja</span>
+                                    <span className="font-black text-2xl text-orange-600">{selectedOrderDetail.tableNumber}</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                                <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ChefHat size={16} /> Rincian Menu</h3>
+                                <div className="space-y-3">
+                                    {selectedOrderDetail.items?.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-start py-2 border-b border-slate-200 last:border-0">
+                                            <div className="flex gap-3">
+                                                <div className="bg-slate-900 text-white w-6 h-6 rounded-lg flex items-center justify-center font-black text-[9px] shrink-0 mt-0.5">{item.qty}x</div>
+                                                <div>
+                                                    <span className="font-black text-slate-700 text-xs uppercase block">{item.name}</span>
+                                                    <span className="text-[9px] font-bold text-gray-400">@ Rp {item.price?.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            <span className="font-black text-slate-900 text-xs shrink-0">Rp {(item.price * item.qty).toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-xl">
+                                <div className="flex justify-between mb-2 text-[10px] text-slate-400 uppercase font-black tracking-widest">
+                                    <span>Subtotal</span>
+                                    <span>Rp {selectedOrderDetail.subTotal?.toLocaleString()}</span>
+                                </div>
+                                {selectedOrderDetail.uniqueCode > 0 && (
+                                    <div className="flex justify-between mb-2 text-[10px] text-orange-400 uppercase font-black tracking-widest">
+                                        <span>Kode Unik</span>
+                                        <span>+{selectedOrderDetail.uniqueCode}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center pt-3 border-t border-slate-700">
+                                    <span className="font-black text-xs uppercase tracking-widest text-orange-400">Total Bayar</span>
+                                    <span className="font-black text-2xl text-white tracking-tighter">Rp {selectedOrderDetail.total?.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 border-t">
+                            <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] active:scale-95 transition-all">Tutup</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
