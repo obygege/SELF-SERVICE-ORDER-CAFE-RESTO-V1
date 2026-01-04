@@ -75,79 +75,88 @@ const BaristaDisplay = () => {
         <div className="min-h-screen bg-slate-50 p-4 font-sans pb-20">
             <style>
                 {`
+                @media screen {
+                    #barista-print-receipt { display: none; }
+                }
                 @media print {
-                    body * { visibility: hidden; }
-                    #barista-print-receipt, #barista-print-receipt * { visibility: visible; }
-                    #barista-print-receipt {
-                        position: absolute;
-                        left: 0;
-                        right: 0;
-                        top: 0;
-                        margin: 0 auto !important;
-                        width: 46mm;
-                        padding: 0;
-                        background: white;
-                        display: block !important;
-                    }
                     @page { 
                         size: 58mm auto; 
-                        margin: 0; 
+                        margin: 0 !important; 
                     }
-                    html, body { height: auto; overflow: visible; }
+                    html, body {
+                        width: 58mm !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: white;
+                        -webkit-print-color-adjust: exact;
+                    }
+                    body * { visibility: hidden; }
+                    .no-print { display: none !important; }
+                    #barista-print-receipt, #barista-print-receipt * { 
+                        visibility: visible; 
+                        color: #000 !important;
+                        font-weight: 900 !important;
+                        -webkit-font-smoothing: antialiased;
+                    }
+                    #barista-print-receipt {
+                        position: absolute !important;
+                        left: 0.5mm !important;
+                        top: 0;
+                        width: 48mm !important;
+                        margin: 0 !important;
+                        padding-left: 1mm !important;
+                        padding-right: 1mm !important;
+                        padding-top: 1mm !important;
+                        box-sizing: border-box;
+                        display: block !important;
+                        font-family: 'Courier New', Courier, monospace !important;
+                    }
                 }
                 `}
             </style>
 
-            {/* AREA STRUK BARISTA (ASLI & RAPI) */}
-            <div id="barista-print-receipt" className="hidden print:block bg-white text-black font-mono" style={{ width: '42mm', padding: '0px 2mm', fontSize: '11px', lineHeight: '1.1' }}>
+            <div id="barista-print-receipt" className="bg-white text-black font-mono">
                 {selectedOrder && (
                     <div className="flex flex-col w-full text-center">
-                        <div style={{ borderBottom: '1px solid black', paddingBottom: '2mm', marginBottom: '2mm', marginTop: '2mm' }}>
-                            <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0', textTransform: 'uppercase' }}>Bar (Drink)</h2>
-                            <p style={{ fontSize: '8px', margin: '0', marginTop: '1mm' }}>
-                                {selectedOrder.createdAt ? new Date(selectedOrder.createdAt.seconds * 1000).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                        <div style={{ borderBottom: '2px solid black', paddingBottom: '2mm', marginBottom: '2mm' }}>
+                            <h2 style={{ fontSize: '12px', fontWeight: '900', margin: '0', textTransform: 'uppercase' }}>Bar (Drink)</h2>
+                            <p style={{ fontSize: '8px', margin: '0', marginTop: '1mm', fontWeight: '900' }}>
+                                {selectedOrder.createdAt ? new Date(selectedOrder.createdAt.seconds * 1000).toLocaleString('id-ID') : ''}
                             </p>
                         </div>
 
-                        <div style={{ fontSize: '10px', textAlign: 'left', marginBottom: '2mm' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Admin:</span><span style={{ fontWeight: 'bold' }}>Barista Staff</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cust:</span><span style={{ fontWeight: 'bold' }}>{selectedOrder.customerName}</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Trx:</span><span>{selectedOrder.orderId}</span></div>
+                        <div style={{ fontSize: '9px', textAlign: 'left', marginBottom: '2mm', fontWeight: '900' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cust:</span><span>{selectedOrder.customerName?.toUpperCase().substring(0, 10)}</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Trx:</span><span>{selectedOrder.orderId?.substring(0, 10)}</span></div>
                         </div>
 
-                        <div style={{ borderY: '1px solid black', padding: '2mm 0', margin: '2mm 0', textAlign: 'center' }}>
-                            <span style={{ fontSize: '20px', fontWeight: '900' }}>MEJA {selectedOrder.tableNumber}</span>
+                        <div style={{ borderTop: '2px solid black', borderBottom: '2px solid black', padding: '1mm 0', margin: '1mm 0', textAlign: 'center' }}>
+                            <span style={{ fontSize: '16px', fontWeight: '900' }}>MEJA {selectedOrder.tableNumber}</span>
                         </div>
 
                         <div style={{ width: '100%', textAlign: 'left' }}>
                             {selectedOrder.items.filter(i => isDrinkCategory(i.category)).map((item, i) => (
-                                <div key={i} style={{ marginBottom: '3mm', borderBottom: '1px solid #eee', paddingBottom: '1mm' }}>
-                                    <div style={{ display: 'flex', gap: '3mm', alignItems: 'start' }}>
-                                        <span style={{ fontWeight: '900', fontSize: '16px' }}>{item.qty}x</span>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <span style={{ fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase' }}>{item.name}</span>
-                                            {item.note && <span style={{ fontSize: '10px', fontStyle: 'italic', backgroundColor: '#000', color: '#fff', padding: '0 2px', marginTop: '1mm' }}>* {item.note}</span>}
+                                <div key={i} style={{ marginBottom: '2mm', borderBottom: '1px dashed #000', paddingBottom: '1mm' }}>
+                                    <div style={{ display: 'flex', gap: '1.5mm', alignItems: 'start' }}>
+                                        <span style={{ fontWeight: '900', fontSize: '14px' }}>{item.qty}x</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                            <span style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase', lineHeight: '1.1' }}>{item.name}</span>
+                                            {item.note && <span style={{ fontSize: '8px', fontWeight: '900', lineHeight: '1' }}>* {item.note.toUpperCase()}</span>}
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {selectedOrder.note && (
-                            <div style={{ marginTop: '2mm', padding: '1mm', border: '1px solid black', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
-                                Catatan Order: {selectedOrder.note}
-                            </div>
-                        )}
-
-                        <div style={{ textAlign: 'center', marginTop: '4mm', fontSize: '9px', borderTop: '1px solid black', paddingTop: '2mm' }}>
-                            SEGERA DIRACIK
+                        <div style={{ textAlign: 'center', marginTop: '3mm', fontSize: '9px', borderTop: '2px solid black', paddingTop: '2mm', fontWeight: '900' }}>
+                            <p style={{ margin: '0' }}>PESANAN MINUMAN</p>
+                            {selectedOrder.note && <p style={{ margin: '1mm 0 0 0', overflowWrap: 'break-word' }}>KET: {selectedOrder.note.toUpperCase()}</p>}
                         </div>
                         <div style={{ height: '10mm' }}></div>
                     </div>
                 )}
             </div>
 
-            {/* MONITOR UI */}
             <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 no-print">
                 <div className="flex items-center gap-5">
                     <div className="w-16 h-16 rounded-3xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
@@ -176,7 +185,7 @@ const BaristaDisplay = () => {
                     const isReady = order.status === 'ready';
 
                     return (
-                        <div key={order.id} className={`flex flex-col rounded-[2.5rem] bg-white border-2 transition-all duration-500 shadow-sm ${isReady ? 'border-green-500 ring-4 ring-green-50' : isCooking ? 'border-blue-500 scale-[1.02] shadow-xl z-10' : 'border-slate-100'}`}>
+                        <div key={order.id} className={`flex flex-col rounded-[2.5rem] bg-white border-2 transition-all duration-500 shadow-sm ${isReady ? 'border-green-500 ring-4 ring-green-50' : isCooking ? 'border-orange-500 scale-[1.02] shadow-xl z-10' : 'border-slate-100'}`}>
                             <div className={`p-6 rounded-t-[2.3rem] flex justify-between items-center ${isReady ? 'bg-green-500 text-white' : isCooking ? 'bg-blue-500 text-white' : 'bg-slate-900 text-white'}`}>
                                 <div>
                                     <h2 className="text-5xl font-black tracking-tighter leading-none">#{order.tableNumber}</h2>

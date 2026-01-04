@@ -70,6 +70,10 @@ const AdminHistory = () => {
 
     const handleMarkAsPaid = async (e, id) => {
         if (e) e.stopPropagation();
+        if (role === 'barista' || role === 'kitchen') {
+            toast.error("Tidak memiliki akses");
+            return;
+        }
         if (window.confirm("Konfirmasi pembayaran ini LUNAS?")) {
             try {
                 await updateDoc(doc(db, "orders", id), { paymentStatus: 'paid' });
@@ -103,14 +107,18 @@ const AdminHistory = () => {
                     body * { visibility: hidden; }
                     #print-receipt-history, #print-receipt-history * { 
                         visibility: visible; 
+                        color: #000 !important;
+                        font-weight: 900 !important;
                     }
                     #print-receipt-history {
                         position: absolute;
-                        left: 0;
+                        left: 0 !important;
                         top: 0;
-                        width: 58mm !important;
+                        width: 52mm !important;
                         margin: 0 !important;
-                        padding: 4mm !important;
+                        padding-left: 2mm !important;
+                        padding-right: 4mm !important;
+                        padding-top: 4mm !important;
                         box-sizing: border-box;
                         display: block !important;
                         background: white;
@@ -122,7 +130,17 @@ const AdminHistory = () => {
             <div id="print-receipt-history" className="bg-white text-black font-mono">
                 {selectedOrder && (
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <img src="/assets/logo.png" alt="LOGO" style={{ height: '40px', width: '40px', objectFit: 'contain', marginBottom: '5px', filter: 'grayscale(1)' }} />
+                        <img
+                            src="/assets/logo.png"
+                            alt="LOGO"
+                            style={{
+                                height: '60px',
+                                width: '60px',
+                                objectFit: 'contain',
+                                marginBottom: '5px',
+                                filter: 'grayscale(100%) contrast(200%)'
+                            }}
+                        />
                         <h2 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', textAlign: 'center' }}>TAKI COFFEE & EATERY</h2>
                         <div style={{ fontSize: '8px', textAlign: 'center', borderTop: '1px solid black', marginTop: '5px', paddingTop: '5px', width: '100%' }}>
                             <p style={{ margin: '0' }}>Jl. Taman Kenten, Duku, Palembang</p>
@@ -266,7 +284,7 @@ const AdminHistory = () => {
                                                 onClick={(e) => handleMarkAsPaid(e, order.id)}
                                                 className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold flex w-fit gap-1 hover:bg-red-200 border border-red-200"
                                             >
-                                                <XCircle size={12} /> Belum (Bayar?)
+                                                <XCircle size={12} /> Belum Bayar
                                             </button>
                                         }
                                     </td>
