@@ -120,27 +120,33 @@ const AdminLiveOrders = () => {
                 }
                 @media print {
                     @page { 
-                        size: 58mm auto; 
-                        margin: 0mm !important; 
+                        size: 57mm auto; 
+                        margin: 0 !important; 
                     }
                     html, body {
-                        width: 58mm;
-                        height: auto;
+                        width: 57mm !important;
                         margin: 0 !important;
                         padding: 0 !important;
                         background: #fff;
+                        /* Menghilangkan header/footer otomatis browser mobile */
+                        -webkit-print-color-adjust: exact;
                     }
                     body * { visibility: hidden; }
                     #print-receipt, #print-receipt * { 
                         visibility: visible; 
+                        font-weight: 900 !important;
+                        color: #000 !important;
+                        -webkit-text-stroke: 0.1px black;
                     }
                     #print-receipt {
-                        position: absolute;
-                        left: 0;
+                        position: fixed; /* Fixed agar di mobile tidak tergeser scroll */
+                        left: 0 !important;
                         top: 0;
-                        width: 58mm !important;
+                        width: 51mm !important;
                         margin: 0 !important;
-                        padding: 4mm !important;
+                        padding-left: 2mm !important;
+                        padding-right: 4mm !important;
+                        padding-top: 4mm !important;
                         box-sizing: border-box;
                         display: block !important;
                         background: white;
@@ -152,7 +158,17 @@ const AdminLiveOrders = () => {
             <div id="print-receipt" className="bg-white text-black font-mono">
                 {selectedOrder && (
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <img src="/assets/logo.png" alt="LOGO" style={{ height: '40px', width: '40px', objectFit: 'contain', marginBottom: '5px', filter: 'grayscale(1)' }} />
+                        <img
+                            src="/assets/logo.png"
+                            alt="LOGO"
+                            style={{
+                                height: '60px',
+                                width: '60px',
+                                objectFit: 'contain',
+                                marginBottom: '5px',
+                                filter: 'grayscale(100%) contrast(200%)'
+                            }}
+                        />
                         <h2 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', textAlign: 'center' }}>TAKI COFFEE & EATERY</h2>
                         <div style={{ fontSize: '8px', textAlign: 'center', borderTop: '1px solid black', marginTop: '5px', paddingTop: '5px', width: '100%' }}>
                             <p style={{ margin: '0' }}>Jl. Taman Kenten, Duku, Palembang</p>
